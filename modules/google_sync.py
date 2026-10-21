@@ -103,6 +103,86 @@ TAB_HEX_COLORS = {
 }
 
 
+def get_column_color_preset(col_name: str) -> dict:
+    """
+    Color Circle Theory Harmonic Palette Engine for Excel:
+    Maps column semantic identities into cohesive, harmonized color families:
+      - Addressing & URLs: Deep Sapphire Navy (#1E3A8A / #F0F4F8)
+      - Health & HTTP Protocols: Deep Forest Emerald (#064E3B / #F0FDF4)
+      - Editorial & Headings/Titles: Deep Ocean Teal (#0F766E / #F0FDFA)
+      - Meta Descriptions & SERP: Deep Royal Violet (#581C87 / #FAF5FF)
+      - Directives & Robots Directives: Deep Twilight Indigo (#312E81 / #EEF2FF)
+      - Quantitative Metrics & Lengths: Deep Bronze Amber (#78350F / #FFFBEB)
+      - Quality & Diagnostic Issues: Deep Ruby Crimson (#881337 / #FFF1F2)
+      - Media & Image Assets: Deep Raspberry Plum (#701A75 / #FDF2F8)
+    """
+    col = str(col_name or "").lower()
+
+    if any(k in col for k in ["address", "url", "link", "destination", "source", "canonical"]):
+        return {
+            "header_bg": "1E3A8A",
+            "lane_even": "FFFFFF",
+            "lane_odd": "F0F4F8",
+            "font_color": "0F172A"
+        }
+    if any(k in col for k in ["status code", "response code", "status", "protocol"]):
+        return {
+            "header_bg": "064E3B",
+            "lane_even": "FFFFFF",
+            "lane_odd": "F0FDF4",
+            "font_color": "064E3B"
+        }
+    if any(k in col for k in ["title", "h1", "h2", "snippet", "heading"]):
+        return {
+            "header_bg": "0F766E",
+            "lane_even": "FFFFFF",
+            "lane_odd": "F0FDFA",
+            "font_color": "134E4A"
+        }
+    if "description" in col:
+        return {
+            "header_bg": "581C87",
+            "lane_even": "FFFFFF",
+            "lane_odd": "FAF5FF",
+            "font_color": "3B0764"
+        }
+    if any(k in col for k in ["indexability", "directive", "robot", "meta"]):
+        return {
+            "header_bg": "312E81",
+            "lane_even": "FFFFFF",
+            "lane_odd": "EEF2FF",
+            "font_color": "1E1B4B"
+        }
+    if any(k in col for k in ["length", "count", "word", "width", "ratio", "size", "occurrences", "bytes"]):
+        return {
+            "header_bg": "78350F",
+            "lane_even": "FFFFFF",
+            "lane_odd": "FFFBEB",
+            "font_color": "451A03"
+        }
+    if any(k in col for k in ["issue", "priority", "severity", "error", "warning", "how to fix"]):
+        return {
+            "header_bg": "881337",
+            "lane_even": "FFFFFF",
+            "lane_odd": "FFF1F2",
+            "font_color": "4C0519"
+        }
+    if any(k in col for k in ["image", "alt", "picture", "media"]):
+        return {
+            "header_bg": "701A75",
+            "lane_even": "FFFFFF",
+            "lane_odd": "FDF2F8",
+            "font_color": "4A044E"
+        }
+
+    return {
+        "header_bg": "1E293B",
+        "lane_even": "FFFFFF",
+        "lane_odd": "F8FAFC",
+        "font_color": "1E293B"
+    }
+
+
 def generate_offline_excel(
     target_folder: str,
     domain: str,
@@ -111,8 +191,8 @@ def generate_offline_excel(
     """
     Builds an executive multi-tab Excel workbook (.xlsx) matching Google Sheets styles:
     - Custom Vibrant Tab Colors on every sheet
-    - Master Obsidian Banner (Row 1) & Frozen Column Headers (Row 2)
-    - Full Cell Matrix Color-Coding (Status codes, Priorities, Lengths, Competitors)
+    - Master Obsidian Banner (Row 1) & Chromatic Column Headers (Row 2)
+    - Harmonic Column Lane Tinting & Matrix Color-Coding (Status codes, Priorities, Lengths, Competitors)
     - Generous un-mushed column widths with 100% full data preservation
     """
     if not HAS_OPENPYXL:
@@ -128,12 +208,6 @@ def generate_offline_excel(
     master_fill = PatternFill(start_color="0B0F19", end_color="0B0F19", fill_type="solid")
     master_font = Font(name="Segoe UI", size=10, bold=True, color="F8FAFC")
     brand_font = Font(name="Segoe UI", size=9, bold=True, color="38BDF8")
-
-    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    header_font = Font(name="Segoe UI", size=9.5, bold=True, color="F8FAFC")
-
-    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
-    plain_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
     green_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
     green_font = Font(name="Segoe UI", size=9.5, bold=True, color="065F46")
@@ -168,6 +242,7 @@ def generate_offline_excel(
         num_cols = len(matrix[0]) if matrix else 1
         headers = [str(h) for h in matrix[0]]
         headers_lower = [h.lower() for h in headers]
+        col_presets = [get_column_color_preset(h) for h in headers]
 
         # 2. Master Obsidian Banner (Row 1)
         ws.row_dimensions[1].height = 28
@@ -185,30 +260,43 @@ def generate_offline_excel(
             ws.cell(row=1, column=num_cols).font = brand_font
             ws.cell(row=1, column=num_cols).alignment = Alignment(horizontal="right", vertical="center")
 
-        # 3. Column Headers (Row 2)
-        ws.row_dimensions[2].height = 24
-        for col_idx, col_name in enumerate(headers, start=1):
+        # 3. Chromatic Column Headers (Row 2)
+        ws.row_dimensions[2].height = 26
+        for col_idx, (col_name, preset) in enumerate(zip(headers, col_presets), start=1):
             cell = ws.cell(row=2, column=col_idx, value=col_name)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            
+            # Competitors Analysis Header Palette
+            if tab_name == "Competitors Analysis":
+                comp_headers_colors = [
+                    "1E3A8A", "78350F", "78350F", "881337", "0F766E",
+                    "312E81", "312E81", "312E81", "064E3B", "064E3B"
+                ]
+                h_color = comp_headers_colors[col_idx - 1] if col_idx - 1 < len(comp_headers_colors) else "1E293B"
+                cell.fill = PatternFill(start_color=h_color, end_color=h_color, fill_type="solid")
+            else:
+                cell.fill = PatternFill(start_color=preset["header_bg"], end_color=preset["header_bg"], fill_type="solid")
+
+            cell.font = Font(name="Segoe UI", size=9.5, bold=True, color="FFFFFF")
+            cell.alignment = Alignment(horizontal="center" if "status" in col_name.lower() or "priority" in col_name.lower() else "left", vertical="center", wrap_text=False)
             cell.border = thin_border
 
         # Freeze Rows 1 & 2 sticky
         ws.freeze_panes = "A3"
 
-        # 4. Data Rows (Row 3+)
+        # 4. Data Rows with Harmonic Lane Tinting (Row 3+)
         for row_idx, row_vals in enumerate(matrix[1:], start=3):
             ws.row_dimensions[row_idx].height = 21
             is_odd = (row_idx % 2 == 1)
-            default_fill = zebra_fill if is_odd else plain_fill
 
             for col_idx, raw_val in enumerate(row_vals, start=1):
                 val_str = str(raw_val or "").strip()
                 cell = ws.cell(row=row_idx, column=col_idx, value=val_str)
                 cell.border = thin_border
-                cell.fill = default_fill
-                cell.font = Font(name="Segoe UI", size=9, color="1E293B")
+                
+                preset = col_presets[col_idx - 1] if col_idx - 1 < len(col_presets) else get_column_color_preset("")
+                lane_bg = preset["lane_odd"] if is_odd else preset["lane_even"]
+                cell.fill = PatternFill(start_color=lane_bg, end_color=lane_bg, fill_type="solid")
+                cell.font = Font(name="Segoe UI", size=9, color=preset["font_color"])
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
 
                 col_name = headers_lower[col_idx - 1] if col_idx - 1 < len(headers_lower) else ""

@@ -1,42 +1,54 @@
 /**
  * =========================================================================
- *     FROGPIPE — HIGH-GRADE EXECUTIVE GOOGLE SHEETS LIVE ENGINE v4.0
+ *     FROGPIPE — HIGH-GRADE EXECUTIVE GOOGLE SHEETS LIVE ENGINE v4.5
+ *          CHROMATIC COLOR CIRCLE HARMONY & BESPOKE COLUMN STYLING
  *               Architected & Engineered by Al Hossain Rifat
  *                        Portfolio: https://r1fat.pages.dev
  * =========================================================================
  * Highlights & Visual Effects:
- *   1. Vibrant Bespoke Tab Palette: Every single sheet tab is vibrantly
- *      color-coded (Crimson, Emerald, Cyan, Purple, Indigo, Teal, Blue, Orange).
- *   2. Master Obsidian Cyber Header (Row 1):
- *      - Deep Obsidian #0B0F19 with crisp glowing badges and author watermark.
- *   3. Slate Pro Sticky Headers (Row 2):
- *      - Deep Charcoal #1E293B with 3px thick colored bottom accent matching tab.
+ *   1. Chromatic Color Circle Theory (Harmonized Column Identities):
+ *      Every column possesses its own tailored jewel-tone header badge and
+ *      cohesive harmonic pastel lane tinting derived from the 360° color wheel:
+ *        - Addressing & URLs: Deep Sapphire Navy (#1E3A8A / #F0F4F8)
+ *        - Health & HTTP Protocols: Deep Forest Emerald (#064E3B / #F0FDF4)
+ *        - Editorial & Headings/Titles: Deep Ocean Teal (#0F766E / #F0FDFA)
+ *        - Meta Descriptions & SERP: Deep Royal Violet (#581C87 / #FAF5FF)
+ *        - Directives & Robots Directives: Deep Twilight Indigo (#312E81 / #EEF2FF)
+ *        - Quantitative Metrics & Lengths: Deep Bronze Amber (#78350F / #FFFBEB)
+ *        - Quality & Diagnostic Issues: Deep Ruby Crimson (#881337 / #FFF1F2)
+ *        - Media & Image Assets: Deep Raspberry Plum (#701A75 / #FDF2F8)
+ *   2. Vibrant Sheet Tab Palette:
+ *      Every sheet tab features its own saturated badge at the bottom.
+ *   3. Executive Dual Sticky Headers:
+ *      - Row 1: Deep Cyber Obsidian Master Bar (#0B0F19) with Author Credit
+ *      - Row 2: Chromatically Tailored Column Headers with White Bold text
  *      - Top 2 rows frozen sticky during scrolling.
  *   4. Zero-Mushing Intelligent Column Sizing:
- *      - URLs & Addresses: 460px wide (no text collision or truncation)
+ *      - URLs & Addresses: 460px wide (no collision or truncation)
  *      - Titles, Descriptions & Issues: 380-450px wide
  *      - Status Codes & Priority Badges: 120-130px centered
  *      - Numeric metrics (Length, Width, Words): 130px right-aligned
- *      - Minimum column width floor: 180px for all standard fields
- *   5. Atomic 2D Matrix Color-Coding:
+ *      - Minimum floor: 180px for standard attributes
+ *   5. Dynamic 2D Matrix Badges & Triage Flags:
  *      - Status Codes: 200 (Mint Green #D1FAE5), 3xx (Sky Blue #DBEAFE),
  *        4xx (Coral Red #FEE2E2), 5xx (Fiery Rose #FFE4E6)
  *      - Priorities: High (Crimson Badge), Medium (Amber), Low (Sky Blue)
- *      - Length Alerts: Out-of-bounds titles & descriptions flagged in amber
- *      - Content Alerts: Thin content (<300 words) flagged in soft red
- *      - Missing Tags: Flagged in bold alert rose #FFF1F2
+ *      - SEO Length & Depth Warnings: Truncated titles/descriptions in amber;
+ *        thin content (<300 words) in soft red; rich content in green
+ *      - Missing Tags: Highlighted in bold alert rose #FFF1F2
  *   6. Executive Competitor Intelligence Matrix:
- *      - Client Domain in radiant mint green glow (#D1FAE5)
+ *      - Harmonized Moz, Ahrefs, and Traffic metric column headers
+ *      - Client Domain in radiant mint green glow (#D1FAE5 + 2px emerald border)
  *      - Rival competitors in soft rose benchmark (#FEE2E2)
  *   7. High-Speed Atomic Performance:
- *      - Applies 2D background and font arrays in 1 millisecond operation!
+ *      - Renders thousands of cells via 2D background and font arrays in milliseconds!
  * =========================================================================
  */
 
 function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: "online",
-    service: "FrogPipe High-Grade Executive Google Sheets Engine v4.0",
+    service: "FrogPipe Chromatic Color Harmony Google Sheets Engine v4.5",
     architect: "Al Hossain Rifat",
     portfolio: "https://r1fat.pages.dev",
     timestamp: new Date().toISOString()
@@ -186,10 +198,132 @@ function getTabColor(tabName) {
 }
 
 /**
+ * Color Circle Theory Harmonic Palette Engine:
+ * Maps column semantic identities into 8 cohesive, harmonized color families:
+ *   1. Addressing & URLs (Deep Sapphire Navy #1E3A8A / Soft Slate Ice #F0F4F8)
+ *   2. HTTP Protocol & Health (Deep Forest Emerald #064E3B / Soft Mint #F0FDF4)
+ *   3. Editorial & Headings/Titles (Deep Ocean Teal #0F766E / Soft Oceanic #F0FDFA)
+ *   4. Meta Descriptions & SERP (Deep Royal Violet #581C87 / Soft Violet #FAF5FF)
+ *   5. Directives & Indexing (Deep Twilight Indigo #312E81 / Soft Indigo #EEF2FF)
+ *   6. Quantitative Metrics & Lengths (Deep Bronze Amber #78350F / Soft Parchment #FFFBEB)
+ *   7. Quality & Diagnostic Issues (Deep Ruby Crimson #881337 / Soft Rose #FFF1F2)
+ *   8. Media & Image Assets (Deep Raspberry Plum #701A75 / Soft Blush Plum #FDF2F8)
+ */
+function getColumnColorTheme(colName) {
+  const col = String(colName || "").toLowerCase();
+
+  // Family 1: Addressing, URLs, Links, Canonicals (Navy Sapphire)
+  if (col.indexOf("address") !== -1 || col.indexOf("url") !== -1 || col.indexOf("link") !== -1 || col.indexOf("destination") !== -1 || col.indexOf("source") !== -1 || col.indexOf("canonical") !== -1) {
+    return {
+      headerBg: "#1E3A8A",      // Deep Sapphire Navy
+      headerFont: "#FFFFFF",
+      accentBorder: "#38BDF8",  // Sky Blue Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#F0F4F8",     // Cool Slate Ice
+      textColor: "#0F172A"
+    };
+  }
+
+  // Family 2: HTTP Status & Health (Forest Emerald)
+  if (col.indexOf("status code") !== -1 || col.indexOf("response code") !== -1 || col.indexOf("status") !== -1 || col.indexOf("protocol") !== -1) {
+    return {
+      headerBg: "#064E3B",      // Deep Forest Emerald
+      headerFont: "#FFFFFF",
+      accentBorder: "#34D399",  // Mint Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#F0FDF4",     // Subtle Mint Tint
+      textColor: "#064E3B"
+    };
+  }
+
+  // Family 3: Editorial, Headings & Titles (Ocean Teal)
+  if (col.indexOf("title") !== -1 || col.indexOf("h1") !== -1 || col.indexOf("h2") !== -1 || col.indexOf("snippet") !== -1 || col.indexOf("heading") !== -1) {
+    return {
+      headerBg: "#0F766E",      // Deep Ocean Teal
+      headerFont: "#FFFFFF",
+      accentBorder: "#2DD4BF",  // Cyan Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#F0FDFA",     // Soft Oceanic Tint
+      textColor: "#134E4A"
+    };
+  }
+
+  // Family 4: Meta Descriptions (Royal Violet)
+  if (col.indexOf("description") !== -1) {
+    return {
+      headerBg: "#581C87",      // Deep Royal Violet
+      headerFont: "#FFFFFF",
+      accentBorder: "#A855F7",  // Violet Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#FAF5FF",     // Soft Violet Tint
+      textColor: "#3B0764"
+    };
+  }
+
+  // Family 5: Indexing, Meta Robots & Directives (Twilight Indigo)
+  if (col.indexOf("indexability") !== -1 || col.indexOf("directive") !== -1 || col.indexOf("robot") !== -1 || col.indexOf("meta") !== -1) {
+    return {
+      headerBg: "#312E81",      // Deep Twilight Indigo
+      headerFont: "#FFFFFF",
+      accentBorder: "#818CF8",  // Electric Indigo Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#EEF2FF",     // Soft Indigo Tint
+      textColor: "#1E1B4B"
+    };
+  }
+
+  // Family 6: Quantitative Metrics, Lengths, Counts, Words (Warm Bronze Amber)
+  if (col.indexOf("length") !== -1 || col.indexOf("count") !== -1 || col.indexOf("word") !== -1 || col.indexOf("width") !== -1 || col.indexOf("ratio") !== -1 || col.indexOf("size") !== -1 || col.indexOf("occurrences") !== -1 || col.indexOf("bytes") !== -1) {
+    return {
+      headerBg: "#78350F",      // Deep Warm Bronze
+      headerFont: "#FFFFFF",
+      accentBorder: "#FBBF24",  // Amber Gold Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#FFFBEB",     // Soft Parchment Tint
+      textColor: "#451A03"
+    };
+  }
+
+  // Family 7: Diagnostic Issues, Severity, Priorities (Ruby Crimson)
+  if (col.indexOf("issue") !== -1 || col.indexOf("priority") !== -1 || col.indexOf("severity") !== -1 || col.indexOf("error") !== -1 || col.indexOf("warning") !== -1 || col.indexOf("how to fix") !== -1) {
+    return {
+      headerBg: "#881337",      // Deep Ruby Carbon
+      headerFont: "#FFFFFF",
+      accentBorder: "#F87171",  // Rose Red Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#FFF1F2",     // Soft Rose Tint
+      textColor: "#4C0519"
+    };
+  }
+
+  // Family 8: Media Assets, Images, Dimensions (Raspberry Plum)
+  if (col.indexOf("image") !== -1 || col.indexOf("alt") !== -1 || col.indexOf("picture") !== -1 || col.indexOf("media") !== -1) {
+    return {
+      headerBg: "#701A75",      // Deep Raspberry Plum
+      headerFont: "#FFFFFF",
+      accentBorder: "#F472B6",  // Pink Glow
+      cellBgEven: "#FFFFFF",
+      cellBgOdd: "#FDF2F8",     // Soft Blush Plum
+      textColor: "#4A044E"
+    };
+  }
+
+  // Default Fallback (Executive Charcoal Navy)
+  return {
+    headerBg: "#1E293B",        // Deep Navy Slate
+    headerFont: "#FFFFFF",
+    accentBorder: "#94A3B8",    // Slate Silver Glow
+    cellBgEven: "#FFFFFF",
+    cellBgOdd: "#F8FAFC",       // Ice White
+    textColor: "#1E293B"
+  };
+}
+
+/**
  * High-Grade Tab Formatter:
  * - Master Obsidian KPI Banner (Row 1)
- * - Sticky Column Headers with Tab Accent (Row 2)
- * - Atomic Matrix Cell Color-Coding (Row 3+)
+ * - Chromatic Column Headers with Harmonized Palette (Row 2)
+ * - Subtle Harmonic Column Lane Tinting & Badge Triage (Row 3+)
  * - Intelligent Proportional Column Widths
  */
 function formatHighGradeTab(sheet, rows, domain, tabName) {
@@ -198,7 +332,6 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
   const rawHeaders = rows[0];
   const numDataRows = rows.length - 1;
   const numCols = rawHeaders.length;
-  const themeColor = getTabColor(tabName);
 
   // -------------------------------------------------------------------------
   // 1. Build Master Banner (Row 1)
@@ -228,24 +361,36 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
   }
 
   // -------------------------------------------------------------------------
-  // 2. Data Column Headers (Row 2)
+  // 2. Chromatic Data Column Headers (Row 2)
   // -------------------------------------------------------------------------
-  sheet.setRowHeight(2, 36);
+  sheet.setRowHeight(2, 38);
   const headerRange = sheet.getRange(2, 1, 1, numCols);
   headerRange.setValues([rawHeaders]);
-  headerRange.setBackground("#1E293B"); // Deep Navy Slate
-  headerRange.setFontColor("#F8FAFC");
+
+  const headerBgs = [];
+  const headerFonts = [];
+  const colThemes = [];
+
+  for (let c = 0; c < numCols; c++) {
+    const theme = getColumnColorTheme(rawHeaders[c]);
+    colThemes.push(theme);
+    headerBgs.push(theme.headerBg);
+    headerFonts.push(theme.headerFont);
+  }
+
+  headerRange.setBackgrounds([headerBgs]);
+  headerRange.setFontColors([headerFonts]);
   headerRange.setFontWeight("bold");
   headerRange.setFontSize(10.5);
   headerRange.setVerticalAlignment("middle");
   headerRange.setHorizontalAlignment("left");
-  headerRange.setBorder(null, null, true, null, null, null, themeColor, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  headerRange.setBorder(true, true, true, true, true, true, "#334155", SpreadsheetApp.BorderStyle.SOLID);
 
   // Freeze top 2 rows (Master Bar + Column Headers stay sticky)
   sheet.setFrozenRows(2);
 
   // -------------------------------------------------------------------------
-  // 3. Populate Data & Atomic Matrix Color-Coding (Row 3+)
+  // 3. Populate Data & Harmonic Matrix Color-Coding (Row 3+)
   // -------------------------------------------------------------------------
   if (numDataRows > 0) {
     const dataValues = rows.slice(1);
@@ -269,16 +414,16 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
       const rowFont = [];
       const rowWeight = [];
       const isEven = (r % 2 === 0);
-      const defaultBg = isEven ? "#FFFFFF" : "#F8FAFC"; // Clean zebra
-      const defaultFont = "#1E293B"; // Dark Slate text
 
       for (let c = 0; c < numCols; c++) {
+        const theme = colThemes[c];
         const val = String(dataValues[r][c] || "").trim();
         const lowerVal = val.toLowerCase();
         const colName = headerLower[c] || "";
 
-        let cellBg = defaultBg;
-        let cellFont = defaultFont;
+        // Base harmonic column lane tint
+        let cellBg = isEven ? theme.cellBgEven : theme.cellBgOdd;
+        let cellFont = theme.textColor;
         let cellWeight = "normal";
 
         // A. HTTP Status Codes (200, 301, 404, 500)
@@ -428,7 +573,7 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
 /**
  * Formats the Competitors Analysis tab into an Executive Benchmark Matrix:
  * Row 1: Gold Obsidian Master Banner
- * Row 2: Deep Slate Headers
+ * Row 2: Chromatic Jewel-Tone Column Headers
  * Row 3 (Client): Mint Green VIP Glow (#D1FAE5)
  * Rows 4-8 (Rivals): Soft Crimson Rival Benchmark (#FEE2E2)
  */
@@ -466,17 +611,32 @@ function formatCompetitorsTab(sheet, customData, clientDomain) {
 
   sheet.getRange(1, numCols).setFontColor("#FBBF24").setFontWeight("bold").setFontSize(9.5).setHorizontalAlignment("right");
 
-  // 2. Table Headers (Row 2)
-  sheet.setRowHeight(2, 36);
+  // 2. Chromatic Jewel-Tone Headers (Row 2)
+  sheet.setRowHeight(2, 38);
   const headerRange = sheet.getRange(2, 1, 1, numCols);
   headerRange.setValues([defaultHeaders]);
-  headerRange.setBackground("#0F172A");
-  headerRange.setFontColor("#FFFFFF");
+
+  const compHeaderBgs = [
+    "#1E3A8A", // Website (Sapphire Navy)
+    "#78350F", // DA (Warm Bronze)
+    "#78350F", // PA (Warm Bronze)
+    "#881337", // SS (Spam Score Ruby)
+    "#0F766E", // Keywords (Ocean Teal)
+    "#312E81", // DR (Twilight Indigo)
+    "#312E81", // Backlinks (Twilight Indigo)
+    "#312E81", // Linking Domains (Twilight Indigo)
+    "#064E3B", // Traffic (Forest Emerald)
+    "#064E3B"  // Traffic Values (Forest Emerald)
+  ];
+  const compHeaderFonts = Array(numCols).fill("#FFFFFF");
+
+  headerRange.setBackgrounds([compHeaderBgs]);
+  headerRange.setFontColors([compHeaderFonts]);
   headerRange.setFontWeight("bold");
   headerRange.setFontSize(10.5);
   headerRange.setHorizontalAlignment("center");
   headerRange.setVerticalAlignment("middle");
-  headerRange.setBorder(null, null, true, null, null, null, "#F59E0B", SpreadsheetApp.BorderStyle.SOLID_THICK);
+  headerRange.setBorder(true, true, true, true, true, true, "#334155", SpreadsheetApp.BorderStyle.SOLID);
 
   sheet.setFrozenRows(2);
 
