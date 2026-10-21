@@ -1,6 +1,6 @@
 <div align="center">
 
-![FrogPipe Autonomous SEO Engine](assets/banner.png)
+![FrogPipe Autonomous SEO Engine](assets/frogpipe_banner_v2.png)
 
 # 🐸 FrogPipe — Autonomous SEO Spider & Audit Engine
 
