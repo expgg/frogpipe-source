@@ -26,9 +26,10 @@ wheels/
 # Virtual Environment
 .venv/
 
-# Environment Variables
+# Environment Variables & Local Config
 .env
 .env.local
+config.json
 
 # Crawl / Output / Temp Dumps
 test_crawl/

@@ -7,8 +7,9 @@ import os
 import sys
 import io
 import re
+import json
 import urllib.parse
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 # Force UTF-8 on Windows terminal to prevent cp1252 encoding crashes
 if sys.platform == "win32":
@@ -21,6 +22,36 @@ if sys.platform == "win32":
             sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Config Persistence (config.json)
+# ---------------------------------------------------------------------------
+
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
+DEFAULT_EXAMPLE_URL = "https://r1fat.pages.dev"
+
+
+def load_config() -> dict:
+    """Loads configuration dictionary from config.json."""
+    if os.path.isfile(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_config_value(key: str, value: Any) -> None:
+    """Saves a key-value pair to config.json."""
+    cfg = load_config()
+    cfg[key] = value
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +77,13 @@ def get_temp_crawl_dir() -> str:
 
 def get_screaming_frog_cli() -> Optional[str]:
     """Finds path to Screaming Frog SEO Spider CLI executable."""
+    # 1. Check saved config.json
+    cfg = load_config()
+    saved_path = cfg.get("screaming_frog_cli", "").strip().strip('"\'')
+    if saved_path and os.path.isfile(saved_path):
+        return saved_path
+
+    # 2. Check standard candidate paths
     candidates = [
         r"X:\APPS\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
         r"C:\Program Files\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
@@ -54,8 +92,34 @@ def get_screaming_frog_cli() -> Optional[str]:
     ]
     for c in candidates:
         if os.path.isfile(c):
+            # Auto-persist to config for fast future lookups
+            save_config_value("screaming_frog_cli", c)
             return c
     return None
+
+
+def prompt_and_save_frog_cli() -> Optional[str]:
+    """Interactively prompts user for the Screaming Frog CLI path and persists it."""
+    print("\n[!] Screaming Frog CLI was not detected in standard directories.")
+    print("Please provide the full path to ScreamingFrogSEOSpiderCli.exe (or its install directory).")
+    
+    while True:
+        raw_path = input("Enter Screaming Frog CLI path (or 'q' to cancel): ").strip().strip('"\'')
+        if not raw_path or raw_path.lower() == 'q':
+            return None
+        
+        # If user entered a directory, append the executable name
+        candidate = raw_path
+        if os.path.isdir(candidate):
+            candidate = os.path.join(candidate, "ScreamingFrogSEOSpiderCli.exe")
+            
+        if os.path.isfile(candidate):
+            save_config_value("screaming_frog_cli", candidate)
+            print(f"  [✓] Linked and saved to config.json: {candidate}\n")
+            return candidate
+        else:
+            print(f"  [✗] File not found at: {candidate}. Please try again.")
+
 
 
 # ---------------------------------------------------------------------------
