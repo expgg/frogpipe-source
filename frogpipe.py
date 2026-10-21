@@ -71,22 +71,22 @@ def parse_arguments():
         action="store_true",
         help="Retain raw crawl dump directory instead of cleaning up"
     )
+    parser.add_argument(
+        "-l", "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of URLs to crawl (e.g. 200, 500) — useful for large sites"
+    )
     return parser.parse_args()
 
 
 
 def get_interactive_url() -> str:
-    """Prompts the user interactively for a website URL with styled cyber prompt card."""
+    """Prompts the user interactively for a website URL."""
     if HAS_RICH:
         from rich.prompt import Prompt
-        from modules.ui import print_prompt_card
-        print_prompt_card(
-            title="TARGET RECONNAISSANCE",
-            text="Enter target website URL or domain to audit:",
-            example=f"{DEFAULT_EXAMPLE_URL}  •  http://drstangale.com"
-        )
         url = Prompt.ask(
-            f"  [bold bright_green]Target URL[/bold bright_green]",
+            f"[bold bright_green]Enter Target Website URL[/bold bright_green] [dim](e.g. [bold cyan]{DEFAULT_EXAMPLE_URL}[/bold cyan])[/dim]",
             default=DEFAULT_EXAMPLE_URL
         )
         console.print()
@@ -128,6 +128,7 @@ def main():
     crawl_ok = run_headless_crawl(
         target_url=target_url,
         output_dir=temp_dir,
+        crawl_limit=args.limit,
         verbose=args.verbose
     )
 

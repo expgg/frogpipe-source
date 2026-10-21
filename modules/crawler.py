@@ -34,6 +34,7 @@ if HAS_RICH:
 def run_headless_crawl(
     target_url: str,
     output_dir: str,
+    crawl_limit: Optional[int] = None,
     verbose: bool = False
 ) -> bool:
     """
@@ -81,11 +82,17 @@ def run_headless_crawl(
         "--save-report", save_reports,
     ]
 
-    print_step("Headless Spider Engine Activated", f"Target: {target_url}", phase=(1, 4))
+    if crawl_limit and crawl_limit > 0:
+        cmd.extend(["--crawl-limit", str(crawl_limit)])
+
+    print_step("Headless Spider Engine Activated", f"Target: {target_url}" + (f" (Limit: {crawl_limit} URLs)" if crawl_limit else ""), phase=(1, 4))
     if verbose:
         print(f"Command: {' '.join(cmd)}")
 
     start_time = time.time()
+
+    # Precompile regex for Screaming Frog SpiderProgress
+    progress_pattern = re.compile(r"SpiderProgress\s*\[.*?mCompleted=([0-9,]+?),\s*mWaiting=([0-9,]+?),\s*mCompleted=([0-9.]+)%")
 
     try:
         proc = subprocess.Popen(
@@ -127,15 +134,16 @@ def run_headless_crawl(
                             for line in new_lines:
                                 line = line.strip()
                                 # Spider Progress match
-                                m = re.search(r"SpiderProgress\s*\[.*mCompleted=(\d+).*mCompleted=([\d.]+)%\]", line)
+                                m = progress_pattern.search(line)
                                 if m:
-                                    crawled = m.group(1)
-                                    pct = float(m.group(2))
+                                    crawled = m.group(1).strip()
+                                    waiting = m.group(2).strip()
+                                    pct = float(m.group(3))
                                     progress.update(
                                         crawl_task,
                                         description="Crawling target DOM...",
                                         completed=pct,
-                                        status_info=f"• {crawled} URLs crawled"
+                                        status_info=f"• {crawled} crawled ({waiting} in queue)"
                                     )
                                 elif "Writing report" in line:
                                     rep_name = line.split("Writing report")[-1].split("to")[0].strip()

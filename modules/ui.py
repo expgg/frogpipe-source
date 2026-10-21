@@ -59,7 +59,7 @@ def print_banner():
             ascii_art + "\n" + telemetry,
             border_style="bright_green",
             box=box.DOUBLE,
-            title="[bold bright_cyan]⚡ CYBER INTELLIGENCE SUITE ⚡[/bold bright_cyan]",
+            title="[bold bright_cyan]⚡ SEO SPIDER AUTOMATION TOOL ⚡[/bold bright_cyan]",
             subtitle="[bold bright_green]v2.5.0 Production Engine[/bold bright_green]",
             subtitle_align="right",
             padding=(1, 2)
