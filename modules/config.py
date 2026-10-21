@@ -158,55 +158,82 @@ def get_target_seo_folder(domain_or_url: str) -> str:
     return os.path.join(get_desktop_dir(), folder_name)
 
 
+def load_sheet_webhook_url() -> Optional[str]:
+    """Loads saved Google Apps Script webhook URL from config.json."""
+    cfg = load_config()
+    url = cfg.get("sheet_webhook_url", "").strip()
+    return url if url and "YOUR_DEPLOYMENT_ID" not in url else None
+
+
+def save_sheet_webhook_url(url: str) -> None:
+    """Saves Google Apps Script webhook URL to config.json."""
+    save_config_value("sheet_webhook_url", url.strip())
+
+
 # ---------------------------------------------------------------------------
-# The 9 Audit Datasets Definition
+# The 10 Audit Datasets Definition (Zero Data Pruned, Separate H1 & H2)
 # ---------------------------------------------------------------------------
 
-# Exact tab names requested by the teacher's rubric
 AUDIT_TABS_MAPPING = {
     "issues": {
         "title": "Issues",
         "target_file": "1_Issues.csv",
+        "raw_source": "issues_overview_report.csv",
         "description": "Executive Overview of all SEO issues, warnings, and opportunities.",
     },
-    "h1_h2": {
-        "title": "H1 + H2",
-        "target_file": "2_H1_H2.csv",
-        "description": "Primary and secondary heading tags analysis.",
+    "h1": {
+        "title": "H1",
+        "target_file": "2_H1.csv",
+        "raw_source": "h1_all.csv",
+        "description": "Primary H1 heading tags and character analysis.",
+    },
+    "h2": {
+        "title": "H2",
+        "target_file": "3_H2.csv",
+        "raw_source": "h2_all.csv",
+        "description": "Secondary H2 heading tags and structure analysis.",
     },
     "meta": {
         "title": "Meta Tags + Meta description",
-        "target_file": "3_Meta_Tags_Description.csv",
+        "target_file": "4_Meta_Tags_Description.csv",
+        "raw_source": "meta_description_all.csv",
         "description": "Page meta descriptions, character lengths, and snippets.",
     },
     "content": {
         "title": "Content",
-        "target_file": "4_Content.csv",
+        "target_file": "5_Content.csv",
+        "raw_source": "content_all.csv",
         "description": "Word counts, text ratios, and content depth analysis.",
     },
     "page_titles": {
         "title": "ALL page Titles",
-        "target_file": "5_Page_Titles.csv",
+        "target_file": "6_Page_Titles.csv",
+        "raw_source": "page_titles_all.csv",
         "description": "Page title tags, character lengths, and pixel widths.",
     },
     "urls": {
         "title": "URLs",
-        "target_file": "6_URLs.csv",
-        "description": "Complete list of internal crawlable URLs and status.",
+        "target_file": "7_URLs.csv",
+        "raw_source": "internal_all.csv",
+        "description": "Complete list of internal crawlable URLs and status codes.",
     },
     "images": {
         "title": "Images",
-        "target_file": "7_Images.csv",
-        "description": "Image assets, missing alt text, and file sizes.",
+        "target_file": "8_Images.csv",
+        "raw_source": "images_all.csv",
+        "description": "Image assets, missing alt text, dimensions, and file sizes.",
     },
     "search_console": {
         "title": "Search Console Status",
-        "target_file": "8_Search_Console_Status.csv",
+        "target_file": "9_Search_Console_Status.csv",
+        "raw_source": "search_console_all.csv",
         "description": "Search console status / HTTP response codes verification.",
     },
     "canonicals": {
         "title": "Canonicals",
-        "target_file": "9_Canonicals.csv",
+        "target_file": "10_Canonicals.csv",
+        "raw_source": "canonicals_all.csv",
         "description": "Canonical tag implementation and indexability signals.",
     },
 }
+

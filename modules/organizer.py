@@ -66,76 +66,33 @@ def organize_audit_datasets(
     custom_output_dir: str = None
 ) -> tuple[str, List[Dict[str, Any]]]:
     """
-    Scans raw crawl files, processes and maps them to the teacher's exact 9 datasets,
-    and packages them inside Desktop/SEO_<Website_Name>.
+    Scans raw crawl files, processes and maps them to the teacher's exact 10 datasets,
+    preserving 100% of the raw columns (zero data loss), and packages them inside
+    Desktop/SEO_<Website_Name>.
     """
     target_folder = custom_output_dir or get_target_seo_folder(target_url)
     os.makedirs(target_folder, exist_ok=True)
 
     print_step("Normalizing Datasets", f"Packaging to: {target_folder}")
 
-    # Mapping of raw Screaming Frog files to our 9 target files
-    datasets_summary = []
+    # Process all 10 datasets preserving 100% of all data columns
+    for key, info in AUDIT_TABS_MAPPING.items():
+        src_filename = info.get("raw_source")
+        dst_filename = info.get("target_file")
+        src_path = os.path.join(raw_crawl_dir, src_filename)
+        dst_path = os.path.join(target_folder, dst_filename)
 
-    # 1. Issues
-    issues_src = os.path.join(raw_crawl_dir, "issues_overview_report.csv")
-    issues_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["issues"]["target_file"])
-    if os.path.isfile(issues_src):
-        shutil.copyfile(issues_src, issues_dst)
+        # Special fallback for Search Console: if empty or missing, fallback to response_codes_all.csv
+        if key == "search_console":
+            resp_src = os.path.join(raw_crawl_dir, "response_codes_all.csv")
+            if (not os.path.isfile(src_path) or get_csv_row_count(src_path) == 0) and os.path.isfile(resp_src):
+                src_path = resp_src
 
-    # 2. H1 + H2
-    h1_src = os.path.join(raw_crawl_dir, "h1_all.csv")
-    h2_src = os.path.join(raw_crawl_dir, "h2_all.csv")
-    h1_h2_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["h1_h2"]["target_file"])
-    merge_h1_h2(h1_src, h2_src, h1_h2_dst)
-
-    # 3. Meta Tags & Description
-    meta_src = os.path.join(raw_crawl_dir, "meta_description_all.csv")
-    meta_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["meta"]["target_file"])
-    if os.path.isfile(meta_src):
-        shutil.copyfile(meta_src, meta_dst)
-
-    # 4. Content
-    content_src = os.path.join(raw_crawl_dir, "content_all.csv")
-    content_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["content"]["target_file"])
-    if os.path.isfile(content_src):
-        shutil.copyfile(content_src, content_dst)
-
-    # 5. ALL Page Titles
-    titles_src = os.path.join(raw_crawl_dir, "page_titles_all.csv")
-    titles_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["page_titles"]["target_file"])
-    if os.path.isfile(titles_src):
-        shutil.copyfile(titles_src, titles_dst)
-
-    # 6. URLs
-    urls_src = os.path.join(raw_crawl_dir, "internal_all.csv")
-    urls_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["urls"]["target_file"])
-    if os.path.isfile(urls_src):
-        shutil.copyfile(urls_src, urls_dst)
-
-    # 7. Images
-    images_src = os.path.join(raw_crawl_dir, "images_all.csv")
-    images_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["images"]["target_file"])
-    if os.path.isfile(images_src):
-        shutil.copyfile(images_src, images_dst)
-
-    # 8. Search Console Status / Response Codes
-    gsc_src = os.path.join(raw_crawl_dir, "search_console_all.csv")
-    resp_src = os.path.join(raw_crawl_dir, "response_codes_all.csv")
-    gsc_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["search_console"]["target_file"])
-    
-    # If GSC is empty or missing, fallback to Response Codes
-    chosen_status_src = gsc_src if (os.path.isfile(gsc_src) and get_csv_row_count(gsc_src) > 0) else resp_src
-    if os.path.isfile(chosen_status_src):
-        shutil.copyfile(chosen_status_src, gsc_dst)
-
-    # 9. Canonicals
-    canon_src = os.path.join(raw_crawl_dir, "canonicals_all.csv")
-    canon_dst = os.path.join(target_folder, AUDIT_TABS_MAPPING["canonicals"]["target_file"])
-    if os.path.isfile(canon_src):
-        shutil.copyfile(canon_src, canon_dst)
+        if os.path.isfile(src_path):
+            shutil.copyfile(src_path, dst_path)
 
     # Build summary record for each dataset
+    datasets_summary = []
     for key, info in AUDIT_TABS_MAPPING.items():
         dst_path = os.path.join(target_folder, info["target_file"])
         exists = os.path.isfile(dst_path)
@@ -152,6 +109,7 @@ def organize_audit_datasets(
             "rows": row_count,
             "full_path": dst_path
         })
+
 
     # Write manifest.json
     manifest = {
