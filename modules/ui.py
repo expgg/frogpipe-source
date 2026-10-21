@@ -31,23 +31,24 @@ def print_banner():
  |_|    |_|  \_|\____/ \_____|_|   |_____|_|    |______|[/bold bright_green]"""
 
         meta_info = (
-            "\n\n[bold white] Autonomous SEO Spider & 9-Data Audit Pipeline — Mark 1[/bold white]\n"
+            "\n\n[bold white] Autonomous SEO Spider & 9-Data Audit Pipeline [green]--[/green] Mark 1[/bold white]\n"
             "[bold cyan] Architected & Engineered by[/bold cyan] [bold bright_yellow]Al Hossain Rifat[/bold bright_yellow] "
-            "[dim]•[/dim] [bold bright_magenta underline]r1fat.pages.dev[/bold bright_magenta underline]"
+            "[bold bright_cyan]|[/bold bright_cyan] [bold bright_magenta underline]r1fat.pages.dev[/bold bright_magenta underline]"
         )
 
         console.print(Panel(
             ascii_art + meta_info,
             border_style="bright_green",
             box=box.DOUBLE,
-            subtitle="[dim green]v1.0.0 • Production Engine[/dim green]",
+            subtitle="[dim green]v1.0.0 | Production Engine[/dim green]",
             subtitle_align="right"
         ))
     else:
         print("=" * 70)
-        print("   FROGPIPE — Autonomous SEO Spider & Audit Pipeline (Mark 1)")
-        print("   Architected & Engineered by Al Hossain Rifat • r1fat.pages.dev")
+        print("   FROGPIPE -- Autonomous SEO Spider & Audit Pipeline (Mark 1)")
+        print("   Architected & Engineered by Al Hossain Rifat | r1fat.pages.dev")
         print("=" * 70)
+
 
 
 
