@@ -370,7 +370,7 @@ def sync_to_google_sheet(
     and pushes to Google Apps Script webhook to create the live Google Sheet.
     Returns: (sheet_url, excel_path)
     """
-    print_step("Assembling Master Datasets", "Compiling 11 Audit Tabs + Competitors Matrix (100% Data Fidelity)")
+    print_step("Assembling Master Datasets", "Compiling 11 Audit Tabs + Competitors Matrix (100% Data Fidelity)", phase=(3, 4))
 
     tabs_data: Dict[str, List[List[Any]]] = {}
 
@@ -418,7 +418,7 @@ def sync_to_google_sheet(
         return None, excel_path
 
     # 5. Push Payload to Google Apps Script Webhook (Streaming Tab Sync Engine)
-    print_step("Deploying to Google Sheets", "Streaming audit datasets to Google Apps Script Webhook...")
+    print_step("Deploying to Google Sheets", "Streaming audit datasets to Google Apps Script Webhook...", phase=(4, 4))
 
     # Step 5a: Initialize Spreadsheet
     init_payload = {
@@ -444,6 +444,20 @@ def sync_to_google_sheet(
                     if info["title"] in tabs_data
                 ]
 
+                TAB_ICONS = {
+                    "Issues": ("🚨", "[bold red]Issues[/bold red]"),
+                    "H1": ("🟢", "[bold green]H1 Headings[/bold green]"),
+                    "H2": ("🔵", "[bold cyan]H2 Headings[/bold cyan]"),
+                    "Meta Description": ("🟣", "[bold magenta]Meta Description[/bold magenta]"),
+                    "Meta Tags": ("🔷", "[bold blue]Meta Tags & Directives[/bold blue]"),
+                    "Content": ("🧪", "[bold bright_green]Content & Depth[/bold bright_green]"),
+                    "ALL page Titles": ("💎", "[bold bright_blue]ALL Page Titles[/bold bright_blue]"),
+                    "URLs": ("⚓", "[bold white]Internal URLs[/bold white]"),
+                    "Images": ("🌸", "[bold bright_magenta]Images & Assets[/bold bright_magenta]"),
+                    "Search Console Status": ("🍊", "[bold bright_yellow]Search Console Status[/bold bright_yellow]"),
+                    "Canonicals": ("☁️", "[bold bright_cyan]Canonicals[/bold bright_cyan]"),
+                }
+
                 total_tabs = len(audit_tab_items)
                 for idx, (tab_name, matrix) in enumerate(audit_tab_items, start=1):
                     tab_payload = {
@@ -452,14 +466,16 @@ def sync_to_google_sheet(
                         "tab_name": tab_name,
                         "rows": matrix
                     }
+                    icon, styled_name = TAB_ICONS.get(tab_name, ("📑", f"[bold white]{tab_name}[/bold white]"))
+                    rows_cnt = max(0, len(matrix) - 1)
                     try:
                         tab_res = requests.post(active_webhook, json=tab_payload, timeout=30)
                         if tab_res.status_code == 200:
-                            print_success(f"[{idx}/{total_tabs}] {tab_name} Synced ({max(0, len(matrix)-1)} rows)")
+                            print_success(f"[{idx:02d}/{total_tabs:02d}] {icon} {styled_name:<35} [dim]➔[/dim] [bright_green]{rows_cnt:>4} rows[/bright_green]  [bold bright_green][✓ LIVE][/bold bright_green]")
                         else:
-                            print_warning(f"[{idx}/{total_tabs}] {tab_name} sync warning: HTTP {tab_res.status_code}")
+                            print_warning(f"[{idx:02d}/{total_tabs:02d}] {icon} {styled_name} sync warning: HTTP {tab_res.status_code}")
                     except Exception as tab_err:
-                        print_warning(f"[{idx}/{total_tabs}] {tab_name} sync error: {tab_err}")
+                        print_warning(f"[{idx:02d}/{total_tabs:02d}] {icon} {styled_name} sync error: {tab_err}")
 
                 return sheet_url, excel_path
 

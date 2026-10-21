@@ -73,7 +73,7 @@ def organize_audit_datasets(
     target_folder = custom_output_dir or get_target_seo_folder(target_url)
     os.makedirs(target_folder, exist_ok=True)
 
-    print_step("Normalizing Datasets", f"Packaging to: {target_folder}")
+    print_step("Normalizing Datasets", f"Packaging 11 Audit Tabs to: {target_folder}", phase=(2, 4))
 
     # Process all 10 datasets preserving 100% of all data columns
     for key, info in AUDIT_TABS_MAPPING.items():

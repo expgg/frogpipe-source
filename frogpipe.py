@@ -76,14 +76,20 @@ def parse_arguments():
 
 
 def get_interactive_url() -> str:
-    """Prompts the user interactively for a website URL."""
+    """Prompts the user interactively for a website URL with styled cyber prompt card."""
     if HAS_RICH:
         from rich.prompt import Prompt
-        console.print()
+        from modules.ui import print_prompt_card
+        print_prompt_card(
+            title="TARGET RECONNAISSANCE",
+            text="Enter target website URL or domain to audit:",
+            example=f"{DEFAULT_EXAMPLE_URL}  •  http://drstangale.com"
+        )
         url = Prompt.ask(
-            f"[bold green]Enter Target Website URL[/bold green] [dim](e.g. [bold cyan]{DEFAULT_EXAMPLE_URL}[/bold cyan])[/dim]",
+            f"  [bold bright_green]Target URL[/bold bright_green]",
             default=DEFAULT_EXAMPLE_URL
         )
+        console.print()
         return url.strip()
     else:
         url = input(f"\nEnter Target Website URL [{DEFAULT_EXAMPLE_URL}]: ").strip()

@@ -81,7 +81,7 @@ def run_headless_crawl(
         "--save-report", save_reports,
     ]
 
-    print_step("Headless Spider Engine Activated", f"Target: {target_url}")
+    print_step("Headless Spider Engine Activated", f"Target: {target_url}", phase=(1, 4))
     if verbose:
         print(f"Command: {' '.join(cmd)}")
 
@@ -97,11 +97,11 @@ def run_headless_crawl(
         # Real-time Progress Tracking using Rich
         if HAS_RICH and not verbose:
             with Progress(
-                SpinnerColumn(spinner_name="dots"),
-                TextColumn("[bold bright_green]{task.description}[/bold bright_green]"),
-                BarColumn(bar_width=28, complete_style="bright_green", finished_style="bold green"),
-                TaskProgressColumn(),
-                TextColumn("[cyan]{task.fields[status_info]}[/cyan]"),
+                SpinnerColumn(spinner_name="dots12", style="bold bright_green"),
+                TextColumn("[bold bright_white]{task.description}[/bold bright_white]"),
+                BarColumn(bar_width=32, complete_style="bright_green", finished_style="bold green"),
+                TaskProgressColumn(style="bold bright_yellow"),
+                TextColumn("[bold cyan]{task.fields[status_info]}[/bold cyan]"),
                 TimeElapsedColumn(),
                 console=console
             ) as progress:
