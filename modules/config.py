@@ -148,14 +148,29 @@ def extract_clean_domain(url: str) -> str:
     return clean_name or "target_site"
 
 
+def get_project_root() -> str:
+    """Returns absolute path to the FrogPipe project root directory."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_audits_vault_dir() -> str:
+    """Returns absolute path to the audited_sites directory at project root."""
+    d = os.path.join(get_project_root(), "audited_sites")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def get_target_seo_folder(domain_or_url: str) -> str:
     """
-    Resolves the teacher-specified folder path on Desktop:
-    Desktop/SEO_<Website_Name>
+    Resolves the dedicated audit directory inside audited_sites/:
+    audited_sites/SEO_<clean_domain>
     """
     clean_slug = extract_clean_domain(domain_or_url)
     folder_name = f"SEO_{clean_slug}"
-    return os.path.join(get_desktop_dir(), folder_name)
+    target_path = os.path.join(get_audits_vault_dir(), folder_name)
+    os.makedirs(target_path, exist_ok=True)
+    return target_path
+
 
 
 def load_sheet_webhook_url() -> Optional[str]:

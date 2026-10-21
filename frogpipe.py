@@ -48,7 +48,7 @@ def parse_arguments():
         "-o", "--output",
         type=str,
         default=None,
-        help="Custom output folder path (defaults to Desktop/SEO_<domain>)"
+        help="Custom output folder path (defaults to audited_sites/SEO_<domain>)"
     )
     parser.add_argument(
         "-w", "--webhook",
