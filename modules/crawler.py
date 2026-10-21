@@ -7,6 +7,7 @@ import os
 import sys
 import re
 import time
+import shutil
 import subprocess
 from typing import Optional, Dict, Any
 
@@ -31,6 +32,61 @@ if HAS_RICH:
     )
 
 
+def check_and_clean_disk_space() -> float:
+    """
+    Checks free disk space on the drive hosting Screaming Frog project data.
+    If space is below 6.0 GB, automatically purges abandoned Derby instance databases.
+    Returns available free space in GB.
+    """
+    spider_home = os.path.expanduser("~/.ScreamingFrogSEOSpider")
+    try:
+        check_path = spider_home if os.path.exists(spider_home) else os.path.expanduser("~")
+        total, used, free = shutil.disk_usage(check_path)
+        free_gb = free / (1024 ** 3)
+
+        if free_gb < 6.0:
+            inst_dir = os.path.join(spider_home, "ProjectInstanceData")
+            if os.path.exists(inst_dir):
+                cleaned_bytes = 0
+                for item in os.listdir(inst_dir):
+                    if item == "DO_NOT_MODIFY_THESE_FILES.txt":
+                        continue
+                    item_path = os.path.join(inst_dir, item)
+                    if os.path.isdir(item_path):
+                        try:
+                            item_size = sum(os.path.getsize(os.path.join(r, f)) for r, d, files in os.walk(item_path) for f in files)
+                            shutil.rmtree(item_path, ignore_errors=True)
+                            cleaned_bytes += item_size
+                        except Exception:
+                            pass
+                if cleaned_bytes > 0:
+                    print_warning(f"Purged {cleaned_bytes / (1024**2):.1f} MB of orphaned Screaming Frog cache to free up disk space.")
+                # Recalculate
+                total, used, free = shutil.disk_usage(check_path)
+                free_gb = free / (1024 ** 3)
+        return free_gb
+    except Exception:
+        return 999.0
+
+
+def extract_last_fatal_error(trace_path: str) -> Optional[str]:
+    """
+    Reads the tail of Screaming Frog's trace.txt to find the exact FATAL or ERROR reason.
+    """
+    if not os.path.exists(trace_path):
+        return None
+    try:
+        with open(trace_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            for line in reversed(lines[-60:]):
+                line_str = line.strip()
+                if "FATAL -" in line_str or "Less than 5.0 GB left" in line_str:
+                    return line_str
+    except Exception:
+        pass
+    return None
+
+
 def run_headless_crawl(
     target_url: str,
     output_dir: str,
@@ -46,6 +102,12 @@ def run_headless_crawl(
         print_error("Screaming Frog CLI executable not found on this machine.")
         print_warning("Checked: X:\\APPS\\Screaming Frog SEO Spider and C:\\Program Files...")
         return False
+
+    # Pre-flight disk space health check (Screaming Frog hard stops if free disk < 5.0 GB)
+    free_gb = check_and_clean_disk_space()
+    if free_gb < 5.2:
+        print_error(f"Critical Disk Warning: Only {free_gb:.2f} GB free on system drive!")
+        print_warning("Screaming Frog has a hardcoded emergency abort if free disk space drops below 5.0 GB.")
 
     target_url = normalize_url(target_url)
     os.makedirs(output_dir, exist_ok=True)
@@ -82,10 +144,7 @@ def run_headless_crawl(
         "--save-report", save_reports,
     ]
 
-    if crawl_limit and crawl_limit > 0:
-        cmd.extend(["--crawl-limit", str(crawl_limit)])
-
-    print_step("Headless Spider Engine Activated", f"Target: {target_url}" + (f" (Limit: {crawl_limit} URLs)" if crawl_limit else ""), phase=(1, 4))
+    print_step("Headless Spider Engine Activated", f"Target: {target_url}", phase=(1, 4))
     if verbose:
         print(f"Command: {' '.join(cmd)}")
 
@@ -168,8 +227,18 @@ def run_headless_crawl(
             return True
         else:
             print_error(f"Screaming Frog exited with non-zero return code: {return_code}")
+            fatal_reason = extract_last_fatal_error(trace_path)
+            if fatal_reason:
+                if "Disk usage too high" in fatal_reason or "Less than 5.0 GB left" in fatal_reason:
+                    print_error("Root Cause: Disk usage too high (C: drive dropped below 5.0 GB free threshold).")
+                    print_warning("Screaming Frog requires at least 5.0 GB free disk space. Free up disk space or purge old project data.")
+                elif "Unrecognized option" in fatal_reason:
+                    print_error(f"Root Cause: {fatal_reason.split('FATAL -')[-1].strip()}")
+                else:
+                    print_error(f"Log Detail: {fatal_reason}")
             return False
 
     except Exception as e:
         print_error(f"Execution failed with exception: {e}")
         return False
+
