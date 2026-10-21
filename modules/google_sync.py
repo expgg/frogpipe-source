@@ -233,23 +233,61 @@ def sync_to_google_sheet(
         print_warning("Google Sheets webhook URL skipped. Master deliverable saved in offline Excel workbook.")
         return None, excel_path
 
-    # 5. Push Payload to Google Apps Script Webhook
-    print_step("Deploying to Google Sheets", "Transmitting audit datasets to Google Apps Script Webhook...")
+    # 5. Push Payload to Google Apps Script Webhook (Streaming Tab Sync Engine)
+    print_step("Deploying to Google Sheets", "Streaming audit datasets to Google Apps Script Webhook...")
 
-    payload = {
-        "action": "create_audit",
+    # Step 5a: Initialize Spreadsheet
+    init_payload = {
+        "action": "init_audit",
         "domain": domain,
         "title": f"SEO Audit & Competitors Analysis for {domain}",
-        "tabs": tabs_data
+        "competitors_data": tabs_data.get("Competitors Analysis", [])
     }
 
     try:
-        if HAS_RICH:
-            with console.status("[bold green]Creating Google Spreadsheet & Applying Styles...[/bold green]", spinner="dots"):
-                res = requests.post(active_webhook, json=payload, timeout=60)
-        else:
-            res = requests.post(active_webhook, json=payload, timeout=60)
+        init_res = requests.post(active_webhook, json=init_payload, timeout=40)
+        if init_res.status_code == 200:
+            init_data = init_res.json()
+            if init_data.get("status") == "success":
+                sheet_id = init_data.get("sheet_id")
+                sheet_url = init_data.get("sheet_url")
+                print_success(f"Master Sheet Online: [dim]{sheet_url}[/dim]")
 
+                # Step 5b: Stream each tab one by one with live yield feedback
+                audit_tab_items = [
+                    (info["title"], tabs_data.get(info["title"], []))
+                    for key, info in AUDIT_TABS_MAPPING.items()
+                    if info["title"] in tabs_data
+                ]
+
+                total_tabs = len(audit_tab_items)
+                for idx, (tab_name, matrix) in enumerate(audit_tab_items, start=1):
+                    tab_payload = {
+                        "action": "sync_tab",
+                        "sheet_id": sheet_id,
+                        "tab_name": tab_name,
+                        "rows": matrix
+                    }
+                    try:
+                        tab_res = requests.post(active_webhook, json=tab_payload, timeout=30)
+                        if tab_res.status_code == 200:
+                            print_success(f"[{idx}/{total_tabs}] {tab_name} Synced ({max(0, len(matrix)-1)} rows)")
+                        else:
+                            print_warning(f"[{idx}/{total_tabs}] {tab_name} sync warning: HTTP {tab_res.status_code}")
+                    except Exception as tab_err:
+                        print_warning(f"[{idx}/{total_tabs}] {tab_name} sync error: {tab_err}")
+
+                return sheet_url, excel_path
+
+        # Fallback to consolidated batch sync
+        print_step("Retrying via Consolidated Sync", "Sending atomic batch payload...")
+        batch_payload = {
+            "action": "create_audit",
+            "domain": domain,
+            "title": f"SEO Audit & Competitors Analysis for {domain}",
+            "tabs": tabs_data
+        }
+        res = requests.post(active_webhook, json=batch_payload, timeout=90)
         if res.status_code == 200:
             resp_data = res.json()
             if resp_data.get("status") == "success":
@@ -265,3 +303,4 @@ def sync_to_google_sheet(
         print_error(f"Failed to communicate with Google Sheets webhook: {e}")
 
     return None, excel_path
+
