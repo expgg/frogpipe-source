@@ -31,12 +31,13 @@ from modules.ui import (
 )
 from modules.crawler import run_headless_crawl
 from modules.organizer import organize_audit_datasets
+from modules.google_sync import sync_to_google_sheet
 
 
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="FrogPipe — Autonomous Screaming Frog SEO Audit Engine (Mark 1)"
+        description="FrogPipe — Autonomous Screaming Frog SEO Audit Engine (Mark 2)"
     )
     parser.add_argument(
         "-u", "--url",
@@ -50,6 +51,17 @@ def parse_arguments():
         help="Custom output folder path (defaults to Desktop/SEO_<domain>)"
     )
     parser.add_argument(
+        "-w", "--webhook",
+        type=str,
+        default=None,
+        help="Google Apps Script Webhook URL for live Google Sheets publishing"
+    )
+    parser.add_argument(
+        "--no-sheet",
+        action="store_true",
+        help="Skip Google Sheets sync (only package CSVs and offline Excel workbook)"
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Display verbose logging from Screaming Frog CLI"
@@ -60,6 +72,7 @@ def parse_arguments():
         help="Retain raw crawl dump directory instead of cleaning up"
     )
     return parser.parse_args()
+
 
 
 def get_interactive_url() -> str:
@@ -116,7 +129,7 @@ def main():
         print_error("Crawl process terminated unexpectedly. Review logs.")
         sys.exit(1)
 
-    # 2. Package and Normalize the 9 Audit Datasets
+    # 2. Package and Normalize the 10 Audit Datasets (Zero Data Loss)
     target_folder, datasets = organize_audit_datasets(
         raw_crawl_dir=temp_dir,
         target_url=target_url,
@@ -130,9 +143,24 @@ def main():
         except Exception:
             pass
 
-    # 4. Display Executive Summary
-    print_files_summary(target_folder, datasets)
+    # 4. Google Sheets Live Engine & Master Excel Builder
+    sheet_url, excel_path = sync_to_google_sheet(
+        target_folder=target_folder,
+        domain=clean_domain,
+        webhook_url=args.webhook,
+        skip_webhook=args.no_sheet
+    )
+
+    # 5. Display Executive Summary
+    print_files_summary(
+        folder_path=target_folder,
+        datasets=datasets,
+        sheet_url=sheet_url,
+        excel_path=excel_path
+    )
 
 
 if __name__ == "__main__":
     main()
+
+
