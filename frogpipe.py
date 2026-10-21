@@ -14,8 +14,10 @@ import time
 from modules.config import (
     normalize_url,
     get_screaming_frog_cli,
+    prompt_and_save_frog_cli,
     get_temp_crawl_dir,
-    extract_clean_domain
+    extract_clean_domain,
+    DEFAULT_EXAMPLE_URL
 )
 from modules.ui import (
     HAS_RICH,
@@ -39,7 +41,7 @@ def parse_arguments():
     parser.add_argument(
         "-u", "--url",
         type=str,
-        help="Target website URL to audit (e.g. drstangale.com or https://example.com)"
+        help="Target website URL to audit (e.g. r1fat.pages.dev or drstangale.com)"
     )
     parser.add_argument(
         "-o", "--output",
@@ -65,11 +67,14 @@ def get_interactive_url() -> str:
     if HAS_RICH:
         from rich.prompt import Prompt
         console.print()
-        url = Prompt.ask("[bold green]Enter Target Website URL[/bold green]", default="https://drstangale.com")
+        url = Prompt.ask(
+            f"[bold green]Enter Target Website URL[/bold green] [dim](e.g. [bold cyan]{DEFAULT_EXAMPLE_URL}[/bold cyan])[/dim]",
+            default=DEFAULT_EXAMPLE_URL
+        )
         return url.strip()
     else:
-        url = input("\nEnter Target Website URL [https://drstangale.com]: ").strip()
-        return url or "https://drstangale.com"
+        url = input(f"\nEnter Target Website URL [{DEFAULT_EXAMPLE_URL}]: ").strip()
+        return url or DEFAULT_EXAMPLE_URL
 
 
 def main():
@@ -77,14 +82,16 @@ def main():
 
     args = parse_arguments()
 
-    # Verify Screaming Frog CLI path
+    # Verify or prompt for Screaming Frog CLI path
     cli_path = get_screaming_frog_cli()
     if not cli_path:
-        print_error("Screaming Frog CLI could not be located!")
-        print_warning("Please verify Screaming Frog SEO Spider is installed at X:\\APPS\\Screaming Frog SEO Spider")
-        sys.exit(1)
-    else:
-        print_success(f"Engine Linked: [dim]{cli_path}[/dim]")
+        cli_path = prompt_and_save_frog_cli()
+        if not cli_path:
+            print_error("Screaming Frog CLI path was not provided. Exiting.")
+            sys.exit(1)
+
+    print_success(f"Engine Linked: [dim]{cli_path}[/dim]")
+
 
     # Resolve target URL
     raw_url = args.url if args.url else get_interactive_url()

@@ -22,29 +22,33 @@ console = Console() if HAS_RICH else None
 def print_banner():
     """Renders the executive FrogPipe cyberpunk terminal banner."""
     if HAS_RICH:
-        banner_text = (
-            "[bold green]   ______                 ____  _            [/bold green]\n"
-            "[bold green]  / ____/________  ____ _/ __ \\(_)___  ___   [/bold green]\n"
-            "[bold green] / /_  / ___/ __ \\/ __ `/ /_/ / / __ \\/ _ \\  [/bold green]\n"
-            "[bold green]/ __/ / /  / /_/ / /_/ / ____/ / /_/ /  __/  [/bold green]\n"
-            "[bold green]/_/   /_/   \\____/\\__, /_/   /_/ .___/\\___/   [/bold green]\n"
-            "[bold green]                 /____/       /_/             [/bold green]\n"
-            "\n"
-            "[bold white] Autonomous SEO Spider & 9-Data Audit Pipeline — Mark 1[/bold white]\n"
-            "[bold cyan] Architected & Engineered by Al Hossain Rifat[/bold cyan]"
+        # Aligned raw string ASCII art for FROGPIPE with zero font drift
+        ascii_art = r"""[bold bright_green]  ______ _____   ____   _____ _____ _____ _____  ______ 
+ |  ____|  __ \ / __ \ / ____|  __ \_   _|  __ \|  ____|
+ | |__  | |__) | |  | | |  __| |__) || | | |__) | |__   
+ |  __| |  _  /| |  | | | |_ |  ___/ | | |  ___/|  __|  
+ | |    | | \ \| |__| | |__| | |    _| |_| |    | |____ 
+ |_|    |_|  \_|\____/ \_____|_|   |_____|_|    |______|[/bold bright_green]"""
+
+        meta_info = (
+            "\n\n[bold white] Autonomous SEO Spider & 9-Data Audit Pipeline — Mark 1[/bold white]\n"
+            "[bold cyan] Architected & Engineered by[/bold cyan] [bold bright_yellow]Al Hossain Rifat[/bold bright_yellow] "
+            "[dim]•[/dim] [bold bright_magenta underline]r1fat.pages.dev[/bold bright_magenta underline]"
         )
+
         console.print(Panel(
-            banner_text,
+            ascii_art + meta_info,
             border_style="bright_green",
             box=box.DOUBLE,
             subtitle="[dim green]v1.0.0 • Production Engine[/dim green]",
             subtitle_align="right"
         ))
     else:
-        print("=" * 65)
+        print("=" * 70)
         print("   FROGPIPE — Autonomous SEO Spider & Audit Pipeline (Mark 1)")
-        print("              Architected by Al Hossain Rifat")
-        print("=" * 65)
+        print("   Architected & Engineered by Al Hossain Rifat • r1fat.pages.dev")
+        print("=" * 70)
+
 
 
 def print_step(title: str, description: str = ""):
