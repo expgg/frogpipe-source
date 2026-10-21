@@ -58,6 +58,8 @@ def run_headless_crawl(
         "Internal:All,"
         "Page Titles:All,"
         "Meta Description:All,"
+        "Directives:All,"
+        "Meta Keywords:All,"
         "H1:All,"
         "H2:All,"
         "Content:All,"

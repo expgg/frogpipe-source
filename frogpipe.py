@@ -129,7 +129,7 @@ def main():
         print_error("Crawl process terminated unexpectedly. Review logs.")
         sys.exit(1)
 
-    # 2. Package and Normalize the 10 Audit Datasets (Zero Data Loss)
+    # 2. Package and Normalize the 11 Audit Datasets (Zero Data Loss)
     target_folder, datasets = organize_audit_datasets(
         raw_crawl_dir=temp_dir,
         target_url=target_url,

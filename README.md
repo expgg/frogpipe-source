@@ -4,13 +4,13 @@
 
 # 🐸 FrogPipe — Autonomous SEO Spider & Audit Engine
 
-**The Billion-Dollar Autonomous SEO Crawler & 9-Data Intelligence Pipeline**  
+**The Billion-Dollar Autonomous SEO Crawler & Executive Intelligence Pipeline**  
 *Architected & Engineered by [Al Hossain Rifat](https://r1fat.pages.dev)*
 
 [![Proprietary License](https://img.shields.io/badge/License-Proprietary%20All%20Rights%20Reserved-red.svg)](LICENSE)
 [![Engine](https://img.shields.io/badge/Screaming%20Frog-Headless%20CLI-brightgreen.svg)](https://www.screamingfrog.co.uk)
 [![Portfolio](https://img.shields.io/badge/Architect-r1fat.pages.dev-blueviolet.svg)](https://r1fat.pages.dev)
-[![Version](https://img.shields.io/badge/FrogPipe-Mark%201%20Production-00ff88.svg)](frogpipe.py)
+[![Version](https://img.shields.io/badge/FrogPipe-Mark%202%20Production-00ff88.svg)](frogpipe.py)
 
 </div>
 
@@ -18,29 +18,33 @@
 
 ## ⚡ Overview
 
-**FrogPipe** is an enterprise-grade automated SEO spider pipeline built directly on top of the **Screaming Frog SEO Spider CLI**. It executes high-speed headless crawls on single domains or lead lists, sanitizes bloated crawls, and automatically packages the **9 Essential SEO Audit Datasets** into teacher-compliant deliverable bundles:
+**FrogPipe** is an enterprise-grade automated SEO spider pipeline built directly on top of the **Screaming Frog SEO Spider CLI**. It executes high-speed headless crawls on single domains or lead lists, sanitizes bloated crawls, and automatically packages the **11 Essential SEO Audit Datasets** + **Competitors Analysis Matrix** with **100% full data preservation** (zero columns dropped):
 
-1. **Issues Overview** (`issues_overview_report.csv` ➔ `1_Issues.csv`)
-2. **H1 + H2 Headings** (`h1_all.csv` + `h2_all.csv` ➔ `2_H1_H2.csv` *unified on Address*)
-3. **Meta Tags & Descriptions** (`meta_description_all.csv` ➔ `3_Meta_Tags_Description.csv`)
-4. **Content & Word Counts** (`content_all.csv` ➔ `4_Content.csv`)
-5. **Page Titles** (`page_titles_all.csv` ➔ `5_Page_Titles.csv`)
-6. **URLs & Response Status** (`internal_all.csv` ➔ `6_URLs.csv`)
-7. **Images & Alt Attributes** (`images_all.csv` ➔ `7_Images.csv`)
-8. **Search Console / Status Codes** (`search_console_all.csv` / `response_codes_all.csv` ➔ `8_Search_Console_Status.csv`)
-9. **Canonicals** (`canonicals_all.csv` ➔ `9_Canonicals.csv`)
+1. **Issues Overview** (`1_Issues.csv` — Executive Overview of all SEO issues, warnings, and opportunities)
+2. **H1 Headings** (`2_H1.csv` — Primary H1 heading tags and character analysis)
+3. **H2 Headings** (`3_H2.csv` — Secondary H2 structure and subheading analysis)
+4. **Meta Description** (`4_Meta_Description.csv` — Page meta descriptions, character lengths, and SERP snippets)
+5. **Meta Tags** (`5_Meta_Tags.csv` — Directives, meta robots, canonical tags, and keywords)
+6. **Content & Depth** (`6_Content.csv` — Word counts, text ratios, and content depth analysis)
+7. **ALL Page Titles** (`7_Page_Titles.csv` — Page title tags, character lengths, and pixel widths)
+8. **Internal URLs** (`8_URLs.csv` — Complete list of internal crawlable URLs and status codes)
+9. **Images & Assets** (`9_Images.csv` — Image assets, missing alt text, dimensions, and file sizes)
+10. **Search Console Status** (`10_Search_Console_Status.csv` — Search console status / HTTP response codes)
+11. **Canonicals** (`11_Canonicals.csv` — Canonical tag implementation and indexability signals)
+12. **Competitors Matrix** (High-Impact VIP Benchmark Matrix with client green glow and rival red benchmarks)
 
-Automated packaging generates a clean directory directly on the user's Desktop:  
-`📁 Desktop/SEO_<Website_Domain>/`
+Automated packaging generates a clean directory directly in the project root vault:  
+`📁 audited_sites/SEO_<Website_Domain>/`
 
 ---
 
-## 🚀 Features (Mark 1)
+## 🚀 Features (Mark 2)
 
-- 🐸 **Autonomous Headless Engine**: Directly drives `ScreamingFrogSEOSpiderCli.exe`.
-- 📁 **Automated Desktop Bundling**: Auto-creates `SEO_<Domain>` with verified CSV outputs and `audit_manifest.json`.
-- ⚙️ **Persistent Config Engine**: Auto-detects custom installation paths and remembers them in `config.json`.
-- 🎨 **Executive Cyberpunk Terminal**: High-contrast, pixel-perfect Rich CLI with author badges and real-time status.
+- 🐸 **Autonomous Headless Engine**: Directly drives `ScreamingFrogSEOSpiderCli.exe` with real-time percentage progress bar and URL counter.
+- 🎨 **Top-Tier Executive Google Sheets Live Sync**: Pushes directly to Google Apps Script webhook with custom vibrant tab colors, cyber obsidian master headers, sticky frozen column headers, status code pill badges (200 green, 3xx blue, 4xx red), and wide un-mushed columns.
+- 📊 **Offline Master Excel Workbook**: Automatically builds a matching `.xlsx` offline workbook with tab colors, sticky banners, and color-coded rows.
+- 📁 **Audited Sites Vault**: Organizes all CSVs, JSON manifests, and Excel workbooks cleanly in `audited_sites/SEO_<domain>/`.
+- ⚙️ **Persistent Config Engine**: Remembers installation paths and webhook URLs in `config.json`.
 - 🛡️ **Airtight Proprietary Architecture**: Enterprise-grade engineering strictly protected by proprietary commercial licensing.
 
 ---
@@ -63,7 +67,19 @@ python frogpipe.py
 Or pass target domains directly via CLI:
 ```bash
 python frogpipe.py --url https://r1fat.pages.dev
+python frogpipe.py --url http://drstangale.com
 ```
+
+---
+
+## 🌐 Google Sheets Webhook Deployment
+
+To deploy the **High-Grade Executive Google Sheets Engine**:
+1. Open [Google Apps Script](https://script.google.com).
+2. Create a **New Project**.
+3. Replace `Code.gs` with the contents of [`templates/code.gs`](templates/code.gs).
+4. Click **Deploy > Manage deployments > Edit > New version > Deploy**.
+5. Copy the Web App URL and paste it into [`config.json`](config.json) under `"sheet_webhook_url"`.
 
 ---
 

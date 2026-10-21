@@ -186,7 +186,7 @@ def save_sheet_webhook_url(url: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# The 10 Audit Datasets Definition (Zero Data Pruned, Separate H1 & H2)
+# The 11 Audit Datasets Definition (Zero Data Pruned, Separate H1 & H2, Separate Meta Description & Meta Tags)
 # ---------------------------------------------------------------------------
 
 AUDIT_TABS_MAPPING = {
@@ -208,45 +208,51 @@ AUDIT_TABS_MAPPING = {
         "raw_source": "h2_all.csv",
         "description": "Secondary H2 heading tags and structure analysis.",
     },
-    "meta": {
-        "title": "Meta Tags + Meta description",
-        "target_file": "4_Meta_Tags_Description.csv",
+    "meta_desc": {
+        "title": "Meta Description",
+        "target_file": "4_Meta_Description.csv",
         "raw_source": "meta_description_all.csv",
-        "description": "Page meta descriptions, character lengths, and snippets.",
+        "description": "Page meta descriptions, character lengths, and search snippet analysis.",
+    },
+    "meta_tags": {
+        "title": "Meta Tags",
+        "target_file": "5_Meta_Tags.csv",
+        "raw_source": "directives_all.csv",
+        "description": "Meta robots directives, canonical tags, noindex/nofollow flags, and keywords.",
     },
     "content": {
         "title": "Content",
-        "target_file": "5_Content.csv",
+        "target_file": "6_Content.csv",
         "raw_source": "content_all.csv",
         "description": "Word counts, text ratios, and content depth analysis.",
     },
     "page_titles": {
         "title": "ALL page Titles",
-        "target_file": "6_Page_Titles.csv",
+        "target_file": "7_Page_Titles.csv",
         "raw_source": "page_titles_all.csv",
         "description": "Page title tags, character lengths, and pixel widths.",
     },
     "urls": {
         "title": "URLs",
-        "target_file": "7_URLs.csv",
+        "target_file": "8_URLs.csv",
         "raw_source": "internal_all.csv",
         "description": "Complete list of internal crawlable URLs and status codes.",
     },
     "images": {
         "title": "Images",
-        "target_file": "8_Images.csv",
+        "target_file": "9_Images.csv",
         "raw_source": "images_all.csv",
         "description": "Image assets, missing alt text, dimensions, and file sizes.",
     },
     "search_console": {
         "title": "Search Console Status",
-        "target_file": "9_Search_Console_Status.csv",
+        "target_file": "10_Search_Console_Status.csv",
         "raw_source": "search_console_all.csv",
         "description": "Search console status / HTTP response codes verification.",
     },
     "canonicals": {
         "title": "Canonicals",
-        "target_file": "10_Canonicals.csv",
+        "target_file": "11_Canonicals.csv",
         "raw_source": "canonicals_all.csv",
         "description": "Canonical tag implementation and indexability signals.",
     },

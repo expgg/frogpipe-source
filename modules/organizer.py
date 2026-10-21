@@ -88,6 +88,23 @@ def organize_audit_datasets(
             if (not os.path.isfile(src_path) or get_csv_row_count(src_path) == 0) and os.path.isfile(resp_src):
                 src_path = resp_src
 
+        # Special fallback for Meta Tags: if directives_all.csv missing, check internal_all.csv or meta_keywords
+        if key == "meta_tags":
+            if not os.path.isfile(src_path) or get_csv_row_count(src_path) == 0:
+                kw_src = os.path.join(raw_crawl_dir, "meta_keywords_all.csv")
+                if os.path.isfile(kw_src) and get_csv_row_count(kw_src) > 0:
+                    src_path = kw_src
+                else:
+                    internal_src = os.path.join(raw_crawl_dir, "internal_all.csv")
+                    if os.path.isfile(internal_src):
+                        try:
+                            df_in = pd.read_csv(internal_src, low_memory=False)
+                            meta_cols = [c for c in df_in.columns if any(m in c.lower() for m in ["address", "meta", "robot", "canonical", "indexability"])]
+                            if meta_cols:
+                                df_in[meta_cols].to_csv(dst_path, index=False, encoding="utf-8-sig")
+                        except Exception:
+                            pass
+
         if os.path.isfile(src_path):
             shutil.copyfile(src_path, dst_path)
 

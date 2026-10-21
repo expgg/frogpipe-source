@@ -87,6 +87,22 @@ def build_competitors_matrix(client_domain: str, competitors: List[str] = None) 
     return matrix
 
 
+TAB_HEX_COLORS = {
+    "Competitors Analysis": "F59E0B",
+    "Issues": "EF4444",
+    "H1": "10B981",
+    "H2": "06B6D4",
+    "Meta Description": "8B5CF6",
+    "Meta Tags": "6366F1",
+    "Content": "14B8A6",
+    "ALL page Titles": "3B82F6",
+    "URLs": "475569",
+    "Images": "EC4899",
+    "Search Console Status": "F97316",
+    "Canonicals": "0EA5E9",
+}
+
+
 def generate_offline_excel(
     target_folder: str,
     domain: str,
@@ -94,9 +110,10 @@ def generate_offline_excel(
 ) -> Optional[str]:
     """
     Builds an executive multi-tab Excel workbook (.xlsx) matching Google Sheets styles:
-    - 10 Technical Screaming Frog tabs with 100% full data preservation
-    - Competitors Analysis tab with light green client row and soft red rivals
-    - Dark slate sticky headers (#0F172A)
+    - Custom Vibrant Tab Colors on every sheet
+    - Master Obsidian Banner (Row 1) & Frozen Column Headers (Row 2)
+    - Full Cell Matrix Color-Coding (Status codes, Priorities, Lengths, Competitors)
+    - Generous un-mushed column widths with 100% full data preservation
     """
     if not HAS_OPENPYXL:
         return None
@@ -105,19 +122,30 @@ def generate_offline_excel(
     excel_path = os.path.join(target_folder, f"SEO_Audit_Report_{clean_slug}.xlsx")
 
     wb = openpyxl.Workbook()
-    # Remove default sheet
-    wb.remove(wb.active)
+    wb.remove(wb.active)  # Remove default sheet
 
-    header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
-    header_font = Font(name="Segoe UI", size=10, bold=True, color="F8FAFC")
-    data_font = Font(name="Segoe UI", size=9)
+    # Master Styling Presets
+    master_fill = PatternFill(start_color="0B0F19", end_color="0B0F19", fill_type="solid")
+    master_font = Font(name="Segoe UI", size=10, bold=True, color="F8FAFC")
+    brand_font = Font(name="Segoe UI", size=9, bold=True, color="38BDF8")
+
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Segoe UI", size=9.5, bold=True, color="F8FAFC")
+
     zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    plain_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
 
     green_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
-    green_font = Font(name="Segoe UI", size=10, bold=True, color="065F46")
+    green_font = Font(name="Segoe UI", size=9.5, bold=True, color="065F46")
+
+    blue_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+    blue_font = Font(name="Segoe UI", size=9.5, bold=True, color="1E40AF")
+
+    amber_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    amber_font = Font(name="Segoe UI", size=9.5, bold=True, color="92400E")
 
     red_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-    red_font = Font(name="Segoe UI", size=9, color="991B1B")
+    red_font = Font(name="Segoe UI", size=9.5, bold=True, color="991B1B")
 
     thin_border = Border(
         left=Side(style='thin', color='E2E8F0'),
@@ -130,46 +158,114 @@ def generate_offline_excel(
         if not matrix:
             continue
 
-        # Clean tab name for Excel (max 31 chars, valid chars)
         safe_tab_name = tab_name[:30].replace(":", "_").replace("/", "_").replace("\\", "_")
         ws = wb.create_sheet(title=safe_tab_name)
-        ws.freeze_panes = "A2"
+        
+        # 1. Vibrant Tab Color
+        hex_color = TAB_HEX_COLORS.get(tab_name, "10B981")
+        ws.sheet_properties.tabColor = hex_color
 
-        for row_idx, row_vals in enumerate(matrix, start=1):
-            for col_idx, val in enumerate(row_vals, start=1):
-                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+        num_cols = len(matrix[0]) if matrix else 1
+        headers = [str(h) for h in matrix[0]]
+        headers_lower = [h.lower() for h in headers]
+
+        # 2. Master Obsidian Banner (Row 1)
+        ws.row_dimensions[1].height = 28
+        ws.cell(row=1, column=1, value=f"🐸 FROGPIPE EXECUTIVE SEO SUITE • {tab_name.upper()} MATRIX")
+        ws.cell(row=1, column=1).font = master_font
+        ws.cell(row=1, column=1).alignment = Alignment(horizontal="left", vertical="center")
+
+        for c in range(1, num_cols + 1):
+            cell = ws.cell(row=1, column=c)
+            cell.fill = master_fill
+            cell.border = thin_border
+
+        if num_cols >= 2:
+            ws.cell(row=1, column=num_cols, value="⚡ ARCHITECTED BY AL HOSSAIN RIFAT • https://r1fat.pages.dev")
+            ws.cell(row=1, column=num_cols).font = brand_font
+            ws.cell(row=1, column=num_cols).alignment = Alignment(horizontal="right", vertical="center")
+
+        # 3. Column Headers (Row 2)
+        ws.row_dimensions[2].height = 24
+        for col_idx, col_name in enumerate(headers, start=1):
+            cell = ws.cell(row=2, column=col_idx, value=col_name)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            cell.border = thin_border
+
+        # Freeze Rows 1 & 2 sticky
+        ws.freeze_panes = "A3"
+
+        # 4. Data Rows (Row 3+)
+        for row_idx, row_vals in enumerate(matrix[1:], start=3):
+            ws.row_dimensions[row_idx].height = 21
+            is_odd = (row_idx % 2 == 1)
+            default_fill = zebra_fill if is_odd else plain_fill
+
+            for col_idx, raw_val in enumerate(row_vals, start=1):
+                val_str = str(raw_val or "").strip()
+                cell = ws.cell(row=row_idx, column=col_idx, value=val_str)
                 cell.border = thin_border
+                cell.fill = default_fill
+                cell.font = Font(name="Segoe UI", size=9, color="1E293B")
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
 
-                if row_idx == 1:
-                    cell.fill = header_fill
-                    cell.font = header_font
-                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                else:
-                    cell.font = data_font
-                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                col_name = headers_lower[col_idx - 1] if col_idx - 1 < len(headers_lower) else ""
 
-                    # Custom coloring for Competitors Analysis
-                    if tab_name == "Competitors Analysis":
-                        if row_idx == 2:
-                            cell.fill = green_fill
-                            cell.font = green_font
-                        elif 3 <= row_idx <= 7:
-                            cell.fill = red_fill
-                            cell.font = red_font
-                    elif row_idx % 2 == 1:
-                        cell.fill = zebra_fill
+                # Competitors Analysis Custom Highlights
+                if tab_name == "Competitors Analysis":
+                    if row_idx == 3:  # Client row
+                        cell.fill = green_fill
+                        cell.font = green_font
+                    else:  # Rival rows
+                        cell.fill = red_fill
+                        cell.font = red_font
+                # HTTP Status Codes
+                elif "status code" in col_name or "response code" in col_name:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    if val_str in ["200", "201"]:
+                        cell.fill = green_fill
+                        cell.font = green_font
+                    elif val_str.startswith("3"):
+                        cell.fill = blue_fill
+                        cell.font = blue_font
+                    elif val_str.startswith("4") or val_str.startswith("5"):
+                        cell.fill = red_fill
+                        cell.font = red_font
+                # Issues Priority
+                elif "priority" in col_name or "severity" in col_name:
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    v_low = val_str.lower()
+                    if v_low in ["high", "critical"]:
+                        cell.fill = red_fill
+                        cell.font = red_font
+                    elif v_low in ["medium", "warning"]:
+                        cell.fill = amber_fill
+                        cell.font = amber_font
+                    elif v_low in ["low", "opportunity"]:
+                        cell.fill = blue_fill
+                        cell.font = blue_font
+                # Missing Alerts
+                elif val_str.lower() == "missing":
+                    cell.fill = red_fill
+                    cell.font = red_font
 
-            ws.row_dimensions[row_idx].height = 24 if row_idx == 1 else 20
-
-        # Adjust column widths
-        for col in ws.columns:
-            max_len = 0
-            col_letter = get_column_letter(col[0].column)
-            for cell in col[:20]: # Sample first 20 rows
-                if cell.value:
-                    max_len = max(max_len, len(str(cell.value)))
-            adjusted_width = min(max(max_len + 3, 12), 45)
-            ws.column_dimensions[col_letter].width = adjusted_width
+        # 5. Generous Un-Mushed Column Widths
+        for c_idx, col_name in enumerate(headers_lower, start=1):
+            col_letter = get_column_letter(c_idx)
+            if any(k in col_name for k in ["address", "url", "link", "canonical", "source", "destination"]):
+                ws.column_dimensions[col_letter].width = 54
+            elif any(k in col_name for k in ["title", "description", "details", "overview", "fix", "h1", "h2"]):
+                ws.column_dimensions[col_letter].width = 44
+            elif any(k in col_name for k in ["status code", "response"]):
+                ws.column_dimensions[col_letter].width = 16
+            elif any(k in col_name for k in ["priority", "severity", "indexability"]):
+                ws.column_dimensions[col_letter].width = 16
+            elif any(k in col_name for k in ["length", "width", "count", "words", "size", "occurrences"]):
+                ws.column_dimensions[col_letter].width = 15
+            else:
+                ws.column_dimensions[col_letter].width = 22
 
     wb.save(excel_path)
     return excel_path
@@ -186,7 +282,7 @@ def sync_to_google_sheet(
     and pushes to Google Apps Script webhook to create the live Google Sheet.
     Returns: (sheet_url, excel_path)
     """
-    print_step("Assembling Master Datasets", "Compiling 10 Audit Tabs + Competitors Matrix (100% Data Fidelity)")
+    print_step("Assembling Master Datasets", "Compiling 11 Audit Tabs + Competitors Matrix (100% Data Fidelity)")
 
     tabs_data: Dict[str, List[List[Any]]] = {}
 
