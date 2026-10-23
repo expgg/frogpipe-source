@@ -9,8 +9,12 @@ import sys
 import io
 from typing import List, Dict, Any, Optional
 
-# Force UTF-8 encoding on Windows consoles to prevent cp1252 charmap crashes
+# Force UTF-8 encoding on Windows consoles to prevent cp1252 charmap crashes and glyph corruption
 if sys.platform == "win32":
+    try:
+        os.system("chcp 65001 > nul 2>&1")
+    except Exception:
+        pass
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")

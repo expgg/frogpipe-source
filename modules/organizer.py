@@ -8,7 +8,7 @@ import shutil
 import json
 import csv
 import pandas as pd
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from modules.config import AUDIT_TABS_MAPPING, get_target_seo_folder, extract_clean_domain
 from modules.ui import print_step, print_success, print_warning
@@ -30,7 +30,8 @@ def get_csv_row_count(file_path: str) -> int:
 def organize_audit_datasets(
     raw_crawl_dir: str,
     target_url: str,
-    custom_output_dir: str = None
+    custom_output_dir: str = None,
+    crawl_limit: Optional[int] = None
 ) -> tuple[str, List[Dict[str, Any]]]:
     """
     Scans raw crawl files, processes and maps them to the teacher's exact 11 datasets,
@@ -52,6 +53,7 @@ def organize_audit_datasets(
         src_path = os.path.join(raw_crawl_dir, src_filename)
         dst_path = os.path.join(target_folder, dst_filename)
         resolved_title = info["title"]
+        synthesized = False
 
         # Special fallback for Search Console: if empty or missing, fallback to response_codes_all.csv
         if key == "search_console":
@@ -75,12 +77,22 @@ def organize_audit_datasets(
                             df_in = pd.read_csv(internal_src, low_memory=False)
                             meta_cols = [c for c in df_in.columns if any(m in c.lower() for m in ["address", "meta", "robot", "canonical", "indexability"])]
                             if meta_cols:
+                                if crawl_limit and crawl_limit > 0:
+                                    df_in = df_in.head(crawl_limit)
                                 df_in[meta_cols].to_csv(dst_path, index=False, encoding="utf-8-sig")
+                                synthesized = True
                         except Exception:
                             pass
 
-        if os.path.isfile(src_path):
-            shutil.copyfile(src_path, dst_path)
+        if not synthesized and os.path.isfile(src_path):
+            if crawl_limit and crawl_limit > 0 and key != "issues":
+                try:
+                    df = pd.read_csv(src_path, low_memory=False, nrows=crawl_limit)
+                    df.to_csv(dst_path, index=False, encoding="utf-8-sig")
+                except Exception:
+                    shutil.copyfile(src_path, dst_path)
+            else:
+                shutil.copyfile(src_path, dst_path)
 
     # Build summary record for each dataset
     datasets_summary = []

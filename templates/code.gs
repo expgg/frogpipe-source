@@ -194,7 +194,8 @@ function doPost(e) {
       ss = SpreadsheetApp.openById(sheetId);
     }
 
-    const defaultSheet = ss.getSheetByName("Sheet1");
+    // Language-agnostic detection of initial blank sheet created by SpreadsheetApp.create()
+    const defaultSheet = ss.getSheets()[0];
 
     const tabOrder = [
       "Executive Summary",
@@ -230,7 +231,7 @@ function doPost(e) {
       }
     });
 
-    if (defaultSheet && ss.getSheets().length > 1) {
+    if (defaultSheet && ss.getSheets().length > 1 && defaultSheet.getName() !== "Executive Summary") {
       try { ss.deleteSheet(defaultSheet); } catch (e) {}
     }
 

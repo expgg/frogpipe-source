@@ -60,6 +60,18 @@ def load_csv_as_matrix(file_path: str) -> List[List[Any]]:
     return rows
 
 
+def get_moz_target_stats(moz_dict: Dict[str, Dict[str, Any]], host: str) -> Dict[str, Any]:
+    """Retrieves Moz metrics with www/non-www and trailing slash normalization."""
+    if not host or not moz_dict:
+        return {}
+    clean_host = host.lower().strip()
+    bare = clean_host.replace("www.", "")
+    for candidate in [clean_host, bare, f"www.{bare}"]:
+        if candidate in moz_dict:
+            return moz_dict[candidate]
+    return {}
+
+
 def fetch_moz_metrics(urls: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Fetches Domain Authority, Page Authority, and Spam Score from Moz API v2.
@@ -77,8 +89,10 @@ def fetch_moz_metrics(urls: List[str]) -> Dict[str, Dict[str, Any]]:
             continue
         parsed = urllib.parse.urlparse(raw if raw.startswith("http") else f"https://{raw}")
         target = parsed.netloc or parsed.path
-        if target and target not in clean_targets:
-            clean_targets.append(target)
+        if target:
+            bare = target.lower().strip().replace("www.", "")
+            if bare not in clean_targets:
+                clean_targets.append(bare)
 
     if not clean_targets:
         return {}
@@ -95,13 +109,15 @@ def fetch_moz_metrics(urls: List[str]) -> Dict[str, Dict[str, Any]]:
             data = res.json()
             metrics = {}
             for item in data.get("results_by_target", []):
-                t = item.get("target")
-                metrics[t] = {
+                t = str(item.get("target") or "").lower().strip().replace("www.", "")
+                stats = {
                     "da": str(int(item.get("domain_authority", 0))),
                     "pa": str(int(item.get("page_authority", 0))),
                     "ss": str(int(item.get("spam_score", 0)))
                 }
-            print_success(f"Moz Recon Linked: [bold bright_green]{len(metrics)} domains analyzed live via Moz API[/bold bright_green]")
+                metrics[t] = stats
+                metrics[f"www.{t}"] = stats
+            print_success(f"Moz Recon Linked: [bold bright_green]{len(clean_targets)} domains analyzed live via Moz API[/bold bright_green]")
             return metrics
     except Exception:
         pass
@@ -135,7 +151,7 @@ def build_competitors_matrix(client_domain: str, competitors: Optional[List[str]
     # Client DA / PA / SS
     import urllib.parse
     client_host = urllib.parse.urlparse(client_url).netloc
-    client_moz = moz_data.get(client_host, {})
+    client_moz = get_moz_target_stats(moz_data, client_host)
     c_da = client_moz.get("da", "-")
     c_pa = client_moz.get("pa", "-")
     c_ss = client_moz.get("ss", "-")
@@ -148,7 +164,7 @@ def build_competitors_matrix(client_domain: str, competitors: Optional[List[str]
             raw_c = comp_list[i - 1].strip()
             c_url = raw_c if raw_c.startswith("http") else f"https://{raw_c}"
             r_host = urllib.parse.urlparse(c_url).netloc
-            r_moz = moz_data.get(r_host, {})
+            r_moz = get_moz_target_stats(moz_data, r_host)
             r_da = r_moz.get("da", "-")
             r_pa = r_moz.get("pa", "-")
             r_ss = r_moz.get("ss", "-")
@@ -163,7 +179,7 @@ def build_competitors_matrix(client_domain: str, competitors: Optional[List[str]
 def build_executive_summary(target_folder: str, domain: str) -> List[List[str]]:
     """
     Computes an executive-grade, non-bloated SEO Health Scorecard and KPI Overview
-    directly from the crawled datasets.
+    directly from the crawled datasets with zero-division protection.
     """
     matrix = [
         ["Metric & Diagnostic Check", "Audit Category", "Finding / Count", "Health Status"]
@@ -265,27 +281,39 @@ def build_executive_summary(target_folder: str, domain: str) -> List[List[str]]:
         except Exception:
             pass
 
-    # Calculate overall health score
-    penalty = (errors_4xx_5xx * 6) + (missing_h1 * 2) + (missing_desc * 1.5) + (missing_titles * 3) + (thin_content * 2)
-    score = max(25, min(100, int(100 - penalty)))
-    if score >= 90:
-        grade = "Grade A+ (Exceptional)"
-        health_status = "Optimal"
-    elif score >= 80:
-        grade = "Grade A (Solid Health)"
-        health_status = "Healthy"
-    elif score >= 65:
-        grade = "Grade B (Minor Optimizations Needed)"
-        health_status = "Attention Required"
-    else:
-        grade = "Grade C (Critical Action Required)"
+    # Calculate overall health score with zero-url protection
+    if total_urls == 0:
+        score = 0
+        grade = "Grade N/A (Incomplete Crawl)"
         health_status = "Action Required"
+        clean_status = "No Data"
+        broken_status = "N/A"
+        redirect_status = "N/A"
+    else:
+        penalty = (errors_4xx_5xx * 6) + (missing_h1 * 2) + (missing_desc * 1.5) + (missing_titles * 3) + (thin_content * 2)
+        score = max(25, min(100, int(100 - penalty)))
+        if score >= 90:
+            grade = "Grade A+ (Exceptional)"
+            health_status = "Optimal"
+        elif score >= 80:
+            grade = "Grade A (Solid Health)"
+            health_status = "Healthy"
+        elif score >= 65:
+            grade = "Grade B (Minor Optimizations Needed)"
+            health_status = "Attention Required"
+        else:
+            grade = "Grade C (Critical Action Required)"
+            health_status = "Action Required"
+
+        clean_status = "Optimal" if clean_200 > 0 else "Review"
+        broken_status = "Perfect (Zero Errors)" if errors_4xx_5xx == 0 else "Action Required"
+        redirect_status = "Normal" if redirect_3xx < total_urls * 0.2 else "Review Needed"
 
     matrix.append(["Overall SEO Health Score", "Executive Rating", f"{score}/100 • {grade}", health_status])
-    matrix.append(["Total Crawled Pages", "Site Architecture", f"{total_urls:,} Pages", "Verified"])
-    matrix.append(["Clean HTTP 200 Pages", "Protocol Health", f"{clean_200:,} Pages", "Optimal" if clean_200 > 0 else "Review"])
-    matrix.append(["Broken Links & Errors (4xx/5xx)", "Technical SEO", f"{errors_4xx_5xx:,} Pages", "Perfect (Zero Errors)" if errors_4xx_5xx == 0 else "Action Required"])
-    matrix.append(["Redirects (3xx)", "Protocol Routing", f"{redirect_3xx:,} Pages", "Normal" if redirect_3xx < total_urls * 0.2 else "Review Needed"])
+    matrix.append(["Total Crawled Pages", "Site Architecture", f"{total_urls:,} Pages", "Verified" if total_urls > 0 else "No Data"])
+    matrix.append(["Clean HTTP 200 Pages", "Protocol Health", f"{clean_200:,} Pages", clean_status])
+    matrix.append(["Broken Links & Errors (4xx/5xx)", "Technical SEO", f"{errors_4xx_5xx:,} Pages", broken_status])
+    matrix.append(["Redirects (3xx)", "Protocol Routing", f"{redirect_3xx:,} Pages", redirect_status])
     matrix.append(["Missing Page Titles", "On-Page Metadata", f"{missing_titles:,} Pages", "Perfect" if missing_titles == 0 else "Action Required"])
     matrix.append(["Truncated Titles (> 60 Chars)", "SERP Display", f"{truncated_titles:,} Pages", "Optimal" if truncated_titles == 0 else "Review Needed"])
     matrix.append(["Missing Meta Descriptions", "CTR Optimization", f"{missing_desc:,} Pages", "Perfect" if missing_desc == 0 else "Action Required"])
@@ -398,15 +426,16 @@ def get_column_color_preset(col_name: str) -> dict:
 def generate_offline_excel(
     target_folder: str,
     domain: str,
-    tabs_data: Dict[str, List[List[Any]]]
+    tabs_data: Dict[str, List[List[Any]]],
+    max_excel_rows: int = 15000
 ) -> Optional[str]:
     """
     Builds an executive multi-tab Excel workbook (.xlsx) matching Google Sheets styles:
     - Custom Vibrant Tab Colors on every sheet
     - Master Obsidian Banner (Row 1) & Chromatic Column Headers (Row 2)
     - Harmonic Column Lane Tinting & Matrix Color-Coding (Status codes, Priorities, Lengths, Competitors)
-    - Generous un-mushed column widths with 100% full data preservation
-    - Optimized with Flyweight Style Cache (90% lower RAM footprint)
+    - Generous un-mushed column widths with 100% full data preservation in CSV vault
+    - Optimized with Flyweight Style Cache and optional row cap for RAM safety
     """
     if not HAS_OPENPYXL:
         return None
@@ -503,7 +532,9 @@ def generate_offline_excel(
         ws.freeze_panes = "A3"
 
         # 4. Data Rows with Harmonic Lane Tinting (Row 3+)
-        for row_idx, row_vals in enumerate(matrix[1:], start=3):
+        # Safe memory capping: slice to max_excel_rows to prevent memory bloat on giant crawls
+        render_rows = matrix[1:max_excel_rows + 1] if (max_excel_rows and max_excel_rows > 0 and len(matrix) - 1 > max_excel_rows) else matrix[1:]
+        for row_idx, row_vals in enumerate(render_rows, start=3):
             ws.row_dimensions[row_idx].height = 21
             is_odd = (row_idx % 2 == 1)
 
@@ -611,6 +642,7 @@ def sync_to_google_sheet(
     webhook_url: Optional[str] = None,
     competitors: Optional[List[str]] = None,
     max_sheet_rows: int = 1500,
+    max_excel_rows: int = 15000,
     skip_webhook: bool = False
 ) -> tuple[Optional[str], Optional[str]]:
     """
@@ -650,7 +682,7 @@ def sync_to_google_sheet(
             tabs_data[resolved_title] = matrix
 
     # 4. Always generate local offline Master Excel workbook (.xlsx)
-    excel_path = generate_offline_excel(target_folder, domain, tabs_data)
+    excel_path = generate_offline_excel(target_folder, domain, tabs_data, max_excel_rows=max_excel_rows)
     if excel_path:
         print_success(f"Offline Master Workbook Built: [dim]{excel_path}[/dim]")
 

@@ -10,6 +10,8 @@ import sys
 import shutil
 import argparse
 import time
+from typing import Optional
+
 
 from modules.config import (
     normalize_url,
@@ -78,6 +80,12 @@ def parse_arguments():
         type=int,
         default=1500,
         help="Maximum rows to stream per tab in Google Sheets (default: 1500, preserves full dataset in Excel)"
+    )
+    parser.add_argument(
+        "--max-excel-rows",
+        type=int,
+        default=15000,
+        help="Maximum rows to format per tab in Master Excel workbook (default: 15000, 0 for unlimited)"
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -157,7 +165,8 @@ def audit_single_target(
     raw_url: str,
     cli_path: str,
     args: argparse.Namespace,
-    competitor_list: list[str]
+    competitor_list: list[str],
+    override_output_dir: Optional[str] = None
 ) -> dict:
     """
     Executes the end-to-end 4-phase audit pipeline for a single target URL.
@@ -200,7 +209,8 @@ def audit_single_target(
         target_folder, datasets = organize_audit_datasets(
             raw_crawl_dir=temp_dir,
             target_url=target_url,
-            custom_output_dir=args.output
+            custom_output_dir=override_output_dir or args.output,
+            crawl_limit=args.limit
         )
 
         # 3. Google Sheets Live Engine & Master Excel Builder
@@ -210,6 +220,7 @@ def audit_single_target(
             webhook_url=args.webhook,
             competitors=competitor_list,
             max_sheet_rows=args.max_sheet_rows,
+            max_excel_rows=args.max_excel_rows,
             skip_webhook=args.no_sheet
         )
 
@@ -316,12 +327,17 @@ def main():
             else:
                 print(f"\n--- BATCH AUDIT [{idx}/{len(targets)}]: {target_raw} ---")
 
+            target_norm = normalize_url(target_raw)
+            site_domain = extract_clean_domain(target_norm)
+            site_output = os.path.join(args.output, f"SEO_{site_domain}") if args.output else None
+
             try:
                 res = audit_single_target(
                     raw_url=target_raw,
                     cli_path=cli_path,
                     args=args,
-                    competitor_list=competitor_list
+                    competitor_list=competitor_list,
+                    override_output_dir=site_output
                 )
                 batch_results.append(res)
             except KeyboardInterrupt:

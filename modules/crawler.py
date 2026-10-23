@@ -33,9 +33,9 @@ if HAS_RICH:
 
 
 def ensure_high_capacity_storage():
-    """
+    r"""
     Ensures Screaming Frog's Derby database cache is placed on a high-capacity drive
-    (e.g. X:\\ if available) instead of filling the user's C: drive under 5.0 GB.
+    (e.g. X:\, D:\, E:\, etc. with > 20 GB free space) instead of filling the user's C: drive under 5.0 GB.
     """
     config_path = os.path.expanduser("~/.ScreamingFrogSEOSpider/spider.config")
     if not os.path.exists(config_path):
@@ -50,30 +50,43 @@ def ensure_high_capacity_storage():
                 current_dir = line.split("=", 1)[1].strip()
                 break
 
-        # If current_dir is on C: and drive X:\ exists with ample space (> 20 GB)
+        # If current_dir is on C: or empty
         if "c\\" in current_dir.lower() or "c:" in current_dir.lower() or not current_dir:
-            drive_x = "X:\\"
-            if os.path.exists(drive_x):
-                try:
-                    total_x, used_x, free_x = shutil.disk_usage(drive_x)
-                    if (free_x / (1024 ** 3)) > 20.0:
-                        x_db_dir = r"X:\ScreamingFrog_Cache"
-                        os.makedirs(x_db_dir, exist_ok=True)
-                        new_lines = []
-                        found = False
-                        for line in lines:
-                            if line.startswith("storage.db_dir="):
-                                new_lines.append(r"storage.db_dir=X\:\\ScreamingFrog_Cache" + "\n")
-                                found = True
-                            else:
-                                new_lines.append(line)
-                        if not found:
-                            new_lines.append(r"storage.db_dir=X\:\\ScreamingFrog_Cache" + "\n")
-                        with open(config_path, "w", encoding="utf-8") as f:
-                            f.writelines(new_lines)
-                        print_success(f"Storage Cache Relocated: [bold cyan]X:\\ScreamingFrog_Cache[/bold cyan] (Ample space on X: drive protects C: drive from filling up)")
-                except Exception:
-                    pass
+            # Find best candidate drive with highest free space (> 20 GB, excluding C:)
+            best_drive = None
+            max_free_gb = 0.0
+            import string
+            for letter in string.ascii_uppercase:
+                if letter == "C":
+                    continue
+                d_path = f"{letter}:\\"
+                if os.path.exists(d_path):
+                    try:
+                        _, _, free_bytes = shutil.disk_usage(d_path)
+                        free_gb = free_bytes / (1024 ** 3)
+                        if free_gb > 20.0 and free_gb > max_free_gb:
+                            max_free_gb = free_gb
+                            best_drive = letter
+                    except Exception:
+                        pass
+
+            if best_drive:
+                target_cache_dir = f"{best_drive}:\\ScreamingFrog_Cache"
+                os.makedirs(target_cache_dir, exist_ok=True)
+                escaped_db_dir = f"storage.db_dir={best_drive}\\:\\\\ScreamingFrog_Cache\n"
+                new_lines = []
+                found = False
+                for line in lines:
+                    if line.startswith("storage.db_dir="):
+                        new_lines.append(escaped_db_dir)
+                        found = True
+                    else:
+                        new_lines.append(line)
+                if not found:
+                    new_lines.append(escaped_db_dir)
+                with open(config_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+                print_success(f"Storage Cache Relocated: [bold cyan]{target_cache_dir}[/bold cyan] ({max_free_gb:.1f} GB free protects C: drive from filling up)")
     except Exception:
         pass
 
@@ -90,11 +103,16 @@ def check_and_clean_disk_space() -> float:
         total, used, free = shutil.disk_usage(check_path)
         free_gb = free / (1024 ** 3)
 
-        # Always inspect ProjectInstanceData for abandoned instances
-        for search_root in [spider_home, r"X:\ScreamingFrog_Cache"]:
+        # Inspect ProjectInstanceData across spider home and all candidate drives
+        import string
+        search_roots = [spider_home]
+        for letter in string.ascii_uppercase:
+            search_roots.append(f"{letter}:\\ScreamingFrog_Cache")
+
+        cleaned_bytes = 0
+        for search_root in search_roots:
             inst_dir = os.path.join(search_root, "ProjectInstanceData")
             if os.path.exists(inst_dir):
-                cleaned_bytes = 0
                 for item in os.listdir(inst_dir):
                     if item == "DO_NOT_MODIFY_THESE_FILES.txt":
                         continue
@@ -106,8 +124,9 @@ def check_and_clean_disk_space() -> float:
                             cleaned_bytes += item_size
                         except Exception:
                             pass
-                if cleaned_bytes > 0:
-                    print_warning(f"Purged {cleaned_bytes / (1024**2):.1f} MB of orphaned Screaming Frog cache to free up disk space.")
+
+        if cleaned_bytes > 0:
+            print_warning(f"Purged {cleaned_bytes / (1024**2):.1f} MB of orphaned Screaming Frog cache to free up disk space.")
 
         # Recalculate
         total, used, free = shutil.disk_usage(check_path)
@@ -137,11 +156,12 @@ def extract_last_fatal_error(trace_path: str) -> Optional[str]:
 
 def inspect_robots_and_sitemap(target_url: str) -> dict:
     """
-    Performs a 0.5s pre-flight check on target_domain/robots.txt and target_domain/sitemap.xml.
-    Returns status indicators without blocking or slowing the crawl.
+    Performs a 0.3s concurrent pre-flight check on target_domain/robots.txt and sitemap.xml.
+    Runs both HTTP probes in parallel using ThreadPoolExecutor for lightning speed.
     """
     import urllib.parse
     import urllib.request
+    import concurrent.futures
 
     parsed = urllib.parse.urlparse(target_url)
     base_origin = f"{parsed.scheme}://{parsed.netloc}"
@@ -156,36 +176,44 @@ def inspect_robots_and_sitemap(target_url: str) -> dict:
         "sitemaps_declared": []
     }
 
-    # 1. Quick check robots.txt
-    try:
-        req = urllib.request.Request(
-            robots_url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
-        )
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            if resp.status == 200:
-                result["robots_ok"] = True
-                result["robots_status"] = "200 OK"
-                content = resp.read().decode("utf-8", errors="replace")
-                for line in content.splitlines():
-                    if line.lower().startswith("sitemap:"):
-                        declared = line.split(":", 1)[1].strip()
-                        if declared:
-                            result["sitemaps_declared"].append(declared)
-    except Exception:
-        result["robots_status"] = "404 Not Found"
+    def check_robots():
+        try:
+            req = urllib.request.Request(
+                robots_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
+            )
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    result["robots_ok"] = True
+                    result["robots_status"] = "200 OK"
+                    content = resp.read().decode("utf-8", errors="replace")
+                    for line in content.splitlines():
+                        if line.lower().startswith("sitemap:"):
+                            declared = line.split(":", 1)[1].strip()
+                            if declared:
+                                result["sitemaps_declared"].append(declared)
+        except Exception:
+            result["robots_status"] = "404 Not Found"
 
-    # 2. Quick check sitemap.xml
-    try:
-        req = urllib.request.Request(
-            sitemap_url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
-        )
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            if resp.status == 200:
-                result["sitemap_ok"] = True
-                result["sitemap_status"] = "Found (200 OK)"
-    except Exception:
+    def check_sitemap():
+        try:
+            req = urllib.request.Request(
+                sitemap_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
+            )
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    result["sitemap_ok"] = True
+                    result["sitemap_status"] = "Found (200 OK)"
+        except Exception:
+            pass
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(check_robots)
+        f2 = executor.submit(check_sitemap)
+        concurrent.futures.wait([f1, f2], timeout=2.5)
+
+    if not result["sitemap_ok"]:
         if result["sitemaps_declared"]:
             result["sitemap_ok"] = True
             result["sitemap_status"] = f"Declared ({len(result['sitemaps_declared'])} map)"
@@ -268,6 +296,9 @@ def run_headless_crawl(
     if active_config and os.path.isfile(active_config):
         cmd.extend(["--config", active_config])
         print_success(f"Loaded Spider Config: [dim]{active_config}[/dim]")
+
+    if crawl_limit and crawl_limit > 0:
+        print_success(f"Crawl Cap Active: [bold bright_yellow]{crawl_limit:,} URLs[/bold bright_yellow] (Ingestion & datasets capped at {crawl_limit:,} records)")
 
     print_step("Headless Spider Engine Activated", f"Target: {target_url}", phase=(1, 4))
     if verbose:

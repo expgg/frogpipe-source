@@ -11,8 +11,12 @@ import json
 import urllib.parse
 from typing import Optional, Dict, Any
 
-# Force UTF-8 on Windows terminal to prevent cp1252 encoding crashes
+# Force UTF-8 on Windows terminal to prevent cp1252 encoding crashes and glyph corruption
 if sys.platform == "win32":
+    try:
+        os.system("chcp 65001 > nul 2>&1")
+    except Exception:
+        pass
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
