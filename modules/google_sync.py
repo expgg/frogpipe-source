@@ -24,6 +24,7 @@ from modules.config import (
     load_sheet_webhook_url,
     save_sheet_webhook_url,
     load_auth_token,
+    load_moz_credentials,
     extract_clean_domain
 )
 from modules.ui import (
@@ -59,6 +60,54 @@ def load_csv_as_matrix(file_path: str) -> List[List[Any]]:
     return rows
 
 
+def fetch_moz_metrics(urls: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Fetches Domain Authority, Page Authority, and Spam Score from Moz API v2.
+    Free tier allows 50 row queries per month. Gracefully skips if credentials are not configured.
+    """
+    access_id, secret_key = load_moz_credentials()
+    if not access_id or not secret_key:
+        return {}
+
+    clean_targets = []
+    import urllib.parse
+    for u in urls:
+        raw = u.strip()
+        if not raw or "competitor-" in raw:
+            continue
+        parsed = urllib.parse.urlparse(raw if raw.startswith("http") else f"https://{raw}")
+        target = parsed.netloc or parsed.path
+        if target and target not in clean_targets:
+            clean_targets.append(target)
+
+    if not clean_targets:
+        return {}
+
+    try:
+        endpoint = "https://lsapi.seomoz.com/v2/url_metrics"
+        res = requests.post(
+            endpoint,
+            auth=(access_id, secret_key),
+            json={"targets": clean_targets},
+            timeout=10
+        )
+        if res.status_code == 200:
+            data = res.json()
+            metrics = {}
+            for item in data.get("results_by_target", []):
+                t = item.get("target")
+                metrics[t] = {
+                    "da": str(int(item.get("domain_authority", 0))),
+                    "pa": str(int(item.get("page_authority", 0))),
+                    "ss": str(int(item.get("spam_score", 0)))
+                }
+            print_success(f"Moz Recon Linked: [bold bright_green]{len(metrics)} domains analyzed live via Moz API[/bold bright_green]")
+            return metrics
+    except Exception:
+        pass
+    return {}
+
+
 def build_competitors_matrix(client_domain: str, competitors: Optional[List[str]] = None) -> List[List[str]]:
     """Generates the 2D matrix for the Competitors Analysis tab per teacher rubric."""
     headers = [
@@ -77,22 +126,178 @@ def build_competitors_matrix(client_domain: str, competitors: Optional[List[str]
     
     # Client row (Row 2)
     client_url = client_domain if client_domain.startswith("http") else f"https://{client_domain}"
-    matrix.append([client_url, "-", "-", "-", "-", "-", "-", "-", "-", "-"])
+    comp_list = competitors or []
+
+    # Optional Live Moz Recon
+    moz_targets = [client_url] + [c for c in comp_list if c and "competitor-" not in c]
+    moz_data = fetch_moz_metrics(moz_targets)
+
+    # Client DA / PA / SS
+    import urllib.parse
+    client_host = urllib.parse.urlparse(client_url).netloc
+    client_moz = moz_data.get(client_host, {})
+    c_da = client_moz.get("da", "-")
+    c_pa = client_moz.get("pa", "-")
+    c_ss = client_moz.get("ss", "-")
+
+    matrix.append([client_url, c_da, c_pa, c_ss, "-", "-", "-", "-", "-", "-"])
 
     # 5 Rivals (Rows 3-7)
-    comp_list = competitors or []
     for i in range(1, 6):
         if len(comp_list) >= i and comp_list[i - 1].strip():
             raw_c = comp_list[i - 1].strip()
             c_url = raw_c if raw_c.startswith("http") else f"https://{raw_c}"
+            r_host = urllib.parse.urlparse(c_url).netloc
+            r_moz = moz_data.get(r_host, {})
+            r_da = r_moz.get("da", "-")
+            r_pa = r_moz.get("pa", "-")
+            r_ss = r_moz.get("ss", "-")
         else:
             c_url = f"https://competitor-{i}.com (Pending Recon)"
-        matrix.append([c_url, "-", "-", "-", "-", "-", "-", "-", "-", "-"])
+            r_da, r_pa, r_ss = "-", "-", "-"
+        matrix.append([c_url, r_da, r_pa, r_ss, "-", "-", "-", "-", "-", "-"])
+
+    return matrix
+
+
+def build_executive_summary(target_folder: str, domain: str) -> List[List[str]]:
+    """
+    Computes an executive-grade, non-bloated SEO Health Scorecard and KPI Overview
+    directly from the crawled datasets.
+    """
+    matrix = [
+        ["Metric & Diagnostic Check", "Audit Category", "Finding / Count", "Health Status"]
+    ]
+
+    total_urls = 0
+    clean_200 = 0
+    redirect_3xx = 0
+    errors_4xx_5xx = 0
+    missing_titles = 0
+    truncated_titles = 0
+    missing_desc = 0
+    missing_h1 = 0
+    thin_content = 0
+    missing_alt = 0
+
+    # 1. Analyze URLs & Status
+    urls_path = os.path.join(target_folder, "8_URLs.csv")
+    if os.path.isfile(urls_path):
+        try:
+            df = pd.read_csv(urls_path, low_memory=False, dtype=str)
+            total_urls = len(df)
+            for col in df.columns:
+                if "status code" in col.lower():
+                    codes = df[col].astype(str)
+                    clean_200 = sum(1 for c in codes if c in ["200", "201"])
+                    redirect_3xx = sum(1 for c in codes if c.startswith("3"))
+                    errors_4xx_5xx = sum(1 for c in codes if c.startswith("4") or c.startswith("5"))
+                    break
+        except Exception:
+            pass
+
+    # 2. Analyze Titles
+    titles_path = os.path.join(target_folder, "7_Page_Titles.csv")
+    if os.path.isfile(titles_path):
+        try:
+            df = pd.read_csv(titles_path, low_memory=False, dtype=str)
+            for col in df.columns:
+                if col.lower() in ["title 1", "title", "page title"]:
+                    missing_titles = sum(1 for t in df[col] if not str(t).strip() or str(t).lower() == "missing")
+                if "length" in col.lower():
+                    try:
+                        lengths = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                        truncated_titles = sum(1 for l in lengths if l > 60)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    # 3. Analyze Meta Descriptions
+    desc_path = os.path.join(target_folder, "4_Meta_Description.csv")
+    if os.path.isfile(desc_path):
+        try:
+            df = pd.read_csv(desc_path, low_memory=False, dtype=str)
+            for col in df.columns:
+                if "meta description 1" in col.lower() or "description" in col.lower():
+                    missing_desc = sum(1 for d in df[col] if not str(d).strip() or str(d).lower() == "missing")
+                    break
+        except Exception:
+            pass
+
+    # 4. Analyze H1
+    h1_path = os.path.join(target_folder, "2_H1.csv")
+    if os.path.isfile(h1_path):
+        try:
+            df = pd.read_csv(h1_path, low_memory=False, dtype=str)
+            for col in df.columns:
+                if col.lower() in ["h1-1", "h1"]:
+                    missing_h1 = sum(1 for h in df[col] if not str(h).strip() or str(h).lower() == "missing")
+                    break
+        except Exception:
+            pass
+
+    # 5. Analyze Content
+    content_path = os.path.join(target_folder, "6_Content.csv")
+    if os.path.isfile(content_path):
+        try:
+            df = pd.read_csv(content_path, low_memory=False, dtype=str)
+            for col in df.columns:
+                if "word count" in col.lower() or "words" in col.lower():
+                    try:
+                        words = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                        thin_content = sum(1 for w in words if 0 < w < 300)
+                    except Exception:
+                        pass
+                    break
+        except Exception:
+            pass
+
+    # 6. Analyze Images
+    img_path = os.path.join(target_folder, "9_Images.csv")
+    if os.path.isfile(img_path):
+        try:
+            df = pd.read_csv(img_path, low_memory=False, dtype=str)
+            for col in df.columns:
+                if "alt text" in col.lower() or "missing alt" in col.lower():
+                    missing_alt = sum(1 for a in df[col] if not str(a).strip() or str(a).lower() in ["missing", "0"])
+                    break
+        except Exception:
+            pass
+
+    # Calculate overall health score
+    penalty = (errors_4xx_5xx * 6) + (missing_h1 * 2) + (missing_desc * 1.5) + (missing_titles * 3) + (thin_content * 2)
+    score = max(25, min(100, int(100 - penalty)))
+    if score >= 90:
+        grade = "Grade A+ (Exceptional)"
+        health_status = "Optimal"
+    elif score >= 80:
+        grade = "Grade A (Solid Health)"
+        health_status = "Healthy"
+    elif score >= 65:
+        grade = "Grade B (Minor Optimizations Needed)"
+        health_status = "Attention Required"
+    else:
+        grade = "Grade C (Critical Action Required)"
+        health_status = "Action Required"
+
+    matrix.append(["Overall SEO Health Score", "Executive Rating", f"{score}/100 • {grade}", health_status])
+    matrix.append(["Total Crawled Pages", "Site Architecture", f"{total_urls:,} Pages", "Verified"])
+    matrix.append(["Clean HTTP 200 Pages", "Protocol Health", f"{clean_200:,} Pages", "Optimal" if clean_200 > 0 else "Review"])
+    matrix.append(["Broken Links & Errors (4xx/5xx)", "Technical SEO", f"{errors_4xx_5xx:,} Pages", "Perfect (Zero Errors)" if errors_4xx_5xx == 0 else "Action Required"])
+    matrix.append(["Redirects (3xx)", "Protocol Routing", f"{redirect_3xx:,} Pages", "Normal" if redirect_3xx < total_urls * 0.2 else "Review Needed"])
+    matrix.append(["Missing Page Titles", "On-Page Metadata", f"{missing_titles:,} Pages", "Perfect" if missing_titles == 0 else "Action Required"])
+    matrix.append(["Truncated Titles (> 60 Chars)", "SERP Display", f"{truncated_titles:,} Pages", "Optimal" if truncated_titles == 0 else "Review Needed"])
+    matrix.append(["Missing Meta Descriptions", "CTR Optimization", f"{missing_desc:,} Pages", "Perfect" if missing_desc == 0 else "Action Required"])
+    matrix.append(["Missing Primary H1 Headings", "Semantic Hierarchy", f"{missing_h1:,} Pages", "Perfect" if missing_h1 == 0 else "Action Required"])
+    matrix.append(["Thin Content Pages (< 300 words)", "Content Depth", f"{thin_content:,} Pages", "Optimal" if thin_content == 0 else "Review Needed"])
+    matrix.append(["Images Missing Alt Text", "Image Accessibility", f"{missing_alt:,} Assets", "Perfect" if missing_alt == 0 else "Action Required"])
 
     return matrix
 
 
 TAB_HEX_COLORS = {
+    "Executive Summary": "0F172A",
     "Competitors Analysis": "F59E0B",
     "Issues": "EF4444",
     "H1": "10B981",
@@ -107,6 +312,7 @@ TAB_HEX_COLORS = {
     "HTTP Status & Response Codes": "F97316",
     "Canonicals": "0EA5E9",
 }
+
 
 
 def get_column_color_preset(col_name: str) -> dict:
@@ -314,8 +520,25 @@ def generate_offline_excel(
 
                 col_name = headers_lower[col_idx - 1] if col_idx - 1 < len(headers_lower) else ""
 
+                # Executive Summary Custom Highlights
+                if tab_name == "Executive Summary":
+                    if row_idx == 3:  # Overall Health Score row
+                        cell.fill = get_fill("F0FDF4")
+                        cell.font = get_font("166534", 10.0, True)
+                    elif col_idx == 4:  # Health Status Column
+                        cell.alignment = align_center
+                        v_lower = val_str.lower()
+                        if any(k in v_lower for k in ["optimal", "healthy", "perfect", "verified"]):
+                            cell.fill = get_fill("D1FAE5")
+                            cell.font = get_font("065F46", 9.5, True)
+                        elif any(k in v_lower for k in ["action", "critical", "error"]):
+                            cell.fill = get_fill("FEE2E2")
+                            cell.font = get_font("991B1B", 9.5, True)
+                        elif any(k in v_lower for k in ["review", "attention", "normal"]):
+                            cell.fill = get_fill("FEF3C7")
+                            cell.font = get_font("92400E", 9.5, True)
                 # Competitors Analysis Custom Highlights
-                if tab_name == "Competitors Analysis":
+                elif tab_name == "Competitors Analysis":
                     if row_idx == 3:  # Client row
                         cell.fill = get_fill("D1FAE5")
                         cell.font = get_font("065F46", 9.5, True)
@@ -355,7 +578,9 @@ def generate_offline_excel(
         # 5. Generous Un-Mushed Column Widths
         for c_idx, col_name in enumerate(headers_lower, start=1):
             col_letter = get_column_letter(c_idx)
-            if any(k in col_name for k in ["address", "url", "link", "canonical", "source", "destination"]):
+            if tab_name == "Executive Summary":
+                ws.column_dimensions[col_letter].width = {1: 36, 2: 24, 3: 32, 4: 24}.get(c_idx, 24)
+            elif any(k in col_name for k in ["address", "url", "link", "canonical", "source", "destination"]):
                 ws.column_dimensions[col_letter].width = 54
             elif any(k in col_name for k in ["title", "description", "details", "overview", "fix", "h1", "h2"]):
                 ws.column_dimensions[col_letter].width = 44
@@ -367,6 +592,14 @@ def generate_offline_excel(
                 ws.column_dimensions[col_letter].width = 15
             else:
                 ws.column_dimensions[col_letter].width = 22
+
+    if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+        try:
+            wb.remove(wb["Sheet"])
+        except Exception:
+            pass
+    if "Executive Summary" in wb.sheetnames:
+        wb.active = wb["Executive Summary"]
 
     wb.save(excel_path)
     return excel_path
@@ -381,11 +614,12 @@ def sync_to_google_sheet(
     skip_webhook: bool = False
 ) -> tuple[Optional[str], Optional[str]]:
     """
-    Collects all 11 audit CSVs + Competitors tab, generates an offline Excel workbook,
-    and pushes to Google Apps Script webhook to create the live Google Sheet.
+    Collects all 11 audit CSVs + Executive Summary cover tab + Competitors tab,
+    generates an offline Excel workbook, and pushes to Google Apps Script webhook
+    to create the live Google Sheet with automatic public sharing enabled.
     Returns: (sheet_url, excel_path)
     """
-    print_step("Assembling Master Datasets", "Compiling 11 Audit Tabs + Competitors Matrix (100% Data Fidelity)", phase=(3, 4))
+    print_step("Assembling Master Datasets", "Compiling Executive Summary + 11 Audit Tabs + Competitors Matrix", phase=(3, 4))
 
     tabs_data: Dict[str, List[List[Any]]] = {}
 
@@ -401,7 +635,13 @@ def sync_to_google_sheet(
         except Exception:
             pass
 
-    # 1. Load the 11 technical audit CSVs
+    # 1. Primary Cover Tab: Executive Health Scorecard (Tab #1)
+    tabs_data["Executive Summary"] = build_executive_summary(target_folder, domain)
+
+    # 2. Competitors Analysis Benchmark Matrix (Tab #2)
+    tabs_data["Competitors Analysis"] = build_competitors_matrix(domain, competitors)
+
+    # 3. Load the 11 technical audit CSVs
     for key, info in AUDIT_TABS_MAPPING.items():
         csv_path = os.path.join(target_folder, info["target_file"])
         matrix = load_csv_as_matrix(csv_path)
@@ -409,10 +649,7 @@ def sync_to_google_sheet(
             resolved_title = title_overrides.get(info["target_file"], info["title"])
             tabs_data[resolved_title] = matrix
 
-    # 2. Append Competitors Analysis tab
-    tabs_data["Competitors Analysis"] = build_competitors_matrix(domain, competitors)
-
-    # 3. Always generate local offline Master Excel workbook (.xlsx)
+    # 4. Always generate local offline Master Excel workbook (.xlsx)
     excel_path = generate_offline_excel(target_folder, domain, tabs_data)
     if excel_path:
         print_success(f"Offline Master Workbook Built: [dim]{excel_path}[/dim]")
@@ -420,7 +657,7 @@ def sync_to_google_sheet(
     if skip_webhook:
         return None, excel_path
 
-    # 4. Check for Google Apps Script Webhook
+    # 5. Check for Google Apps Script Webhook
     active_webhook = webhook_url or load_sheet_webhook_url()
     auth_token = load_auth_token()
 
@@ -445,15 +682,16 @@ def sync_to_google_sheet(
         print_warning("Google Sheets webhook URL skipped. Master deliverable saved in offline Excel workbook.")
         return None, excel_path
 
-    # 5. Push Payload to Google Apps Script Webhook (Streaming Tab Sync Engine)
+    # 6. Push Payload to Google Apps Script Webhook (Streaming Tab Sync Engine)
     print_step("Deploying to Google Sheets", "Streaming audit datasets to Google Apps Script Webhook...", phase=(4, 4))
 
-    # Step 5a: Initialize Spreadsheet
+    # Step 6a: Initialize Spreadsheet with Executive Summary and Competitors Analysis
     init_payload = {
         "action": "init_audit",
         "auth_token": auth_token,
         "domain": domain,
         "title": f"SEO Audit & Competitors Analysis for {domain}",
+        "executive_data": tabs_data.get("Executive Summary", []),
         "competitors_data": tabs_data.get("Competitors Analysis", [])
     }
 
@@ -466,14 +704,16 @@ def sync_to_google_sheet(
                 sheet_url = init_data.get("sheet_url")
                 print_success(f"Master Sheet Online: [dim]{sheet_url}[/dim]")
 
-                # Step 5b: Stream each tab one by one with live yield feedback
+                # Step 6b: Stream each technical audit tab one by one with live yield feedback
                 audit_tab_items = [
                     (t_name, matrix)
                     for t_name, matrix in tabs_data.items()
-                    if t_name != "Competitors Analysis"
+                    if t_name not in ["Executive Summary", "Competitors Analysis"]
                 ]
 
                 TAB_ICONS = {
+                    "Executive Summary": ("📋", "[bold bright_white]Executive Summary[/bold bright_white]"),
+                    "Competitors Analysis": ("🏆", "[bold yellow]Competitors Analysis[/bold yellow]"),
                     "Issues": ("🚨", "[bold red]Issues[/bold red]"),
                     "H1": ("🟢", "[bold green]H1 Headings[/bold green]"),
                     "H2": ("🔵", "[bold cyan]H2 Headings[/bold cyan]"),
@@ -515,6 +755,16 @@ def sync_to_google_sheet(
                             print_warning(f"[{idx:02d}/{total_tabs:02d}] {icon} {styled_name} sync warning: HTTP {tab_res.status_code}")
                     except Exception as tab_err:
                         print_warning(f"[{idx:02d}/{total_tabs:02d}] {icon} {styled_name} sync error: {tab_err}")
+
+                # Finalize audit tab ordering and set Executive Summary as active view
+                try:
+                    requests.post(
+                        active_webhook,
+                        json={"action": "finalize_audit", "auth_token": auth_token, "sheet_id": sheet_id},
+                        timeout=30
+                    )
+                except Exception:
+                    pass
 
                 return sheet_url, excel_path
 

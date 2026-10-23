@@ -152,6 +152,12 @@ Run fully headless crawls by passing flags directly:
 # Basic Audit with live Google Sheets Sync
 python frogpipe.py --url https://r1fat.pages.dev
 
+# Competitive Benchmark Audit (Compares client with rivals + Moz DA/PA metrics)
+python frogpipe.py --url https://r1fat.pages.dev -c rival1.com,rival2.com
+
+# Batch / Lead Gen Mode (Audits an entire list of prospect websites sequentially)
+python frogpipe.py --file leads.txt
+
 # Offline Mode (Generates CSVs + Excel workbook, skips Google Sheets)
 python frogpipe.py --url https://r1fat.pages.dev --no-sheet
 
@@ -211,18 +217,19 @@ Every audit produces **11 individual CSV artifacts**, an **Offline Excel Workboo
 
 | # | Artifact CSV File | Sheet Tab Name | Raw Spider Source | Description & Scope |
 |:---:|:---|:---|:---|:---|
-| **01** | `1_Issues.csv` | **Issues** | `issues_overview_report.csv` | Complete executive breakdown of all SEO errors, warnings, and opportunities with severity triage. |
-| **02** | `2_H1.csv` | **H1** | `h1_all.csv` | All primary H1 heading tags, multiple H1 flags, character lengths, and missing alerts. |
-| **03** | `3_H2.csv` | **H2** | `h2_all.csv` | Secondary H2 heading structure, subheading frequency, and content hierarchy. |
-| **04** | `4_Meta_Description.csv` | **Meta Description** | `meta_description_all.csv` | Page meta descriptions, character lengths, pixel widths, and SERP snippet previews. |
-| **05** | `5_Meta_Tags.csv` | **Meta Tags** | `directives_all.csv` | Meta robots directives, noindex/nofollow flags, canonical tags, and keywords. |
-| **06** | `6_Content.csv` | **Content** | `content_all.csv` | Word counts, text-to-HTML ratios, content depth, readability, and thin content warnings. |
-| **07** | `7_Page_Titles.csv` | **ALL page Titles** | `page_titles_all.csv` | Complete page title tags, character length optimization (30-60 chars), and pixel widths. |
-| **08** | `8_URLs.csv` | **URLs** | `internal_all.csv` | Full index of all crawlable internal URLs, status codes, response times, and hash values. |
-| **09** | `9_Images.csv` | **Images** | `images_all.csv` | Comprehensive image audit, missing alt text tags, image dimensions, and payload sizes. |
-| **10** | `10_Search_Console_Status.csv`| **Search Console Status** | `search_console_all.csv` / `response_codes_all.csv` | HTTP response codes verification, crawl errors, redirects, and indexability signals. |
-| **11** | `11_Canonicals.csv` | **Canonicals** | `canonicals_all.csv` | Canonical link tags, self-canonicalization verification, and canonical mismatch issues. |
-| **12** | *Built Dynamically* | **Competitors Analysis** | *Synthesized Matrix* | Executive competitor benchmarking matrix comparing Client domain vs 5 key rivals. |
+| **00** | *Synthesized Dynamic* | **Executive Summary** | *Diagnostic Engine* | **Master Executive Cover Tab**: Overall SEO Health Score (0–100, Grade A+/A/B/C), clean page ratios, broken link counts, metadata health, and status triage. |
+| **01** | *Synthesized Matrix* | **Competitors Analysis** | *Moz API + Recon* | **Executive Benchmark Matrix**: Domain Authority (DA), Page Authority (PA), and Spam Score comparison between Client and up to 5 rivals. |
+| **02** | `1_Issues.csv` | **Issues** | `issues_overview_report.csv` | Complete executive breakdown of all SEO errors, warnings, and opportunities with severity triage. |
+| **03** | `2_H1.csv` | **H1** | `h1_all.csv` | All primary H1 heading tags, multiple H1 flags, character lengths, and missing alerts. |
+| **04** | `3_H2.csv` | **H2** | `h2_all.csv` | Secondary H2 heading structure, subheading frequency, and content hierarchy. |
+| **05** | `4_Meta_Description.csv` | **Meta Description** | `meta_description_all.csv` | Page meta descriptions, character lengths, pixel widths, and SERP snippet previews. |
+| **06** | `5_Meta_Tags.csv` | **Meta Tags** | `directives_all.csv` | Meta robots directives, noindex/nofollow flags, canonical tags, and keywords. |
+| **07** | `6_Content.csv` | **Content** | `content_all.csv` | Word counts, text-to-HTML ratios, content depth, readability, and thin content warnings. |
+| **08** | `7_Page_Titles.csv` | **ALL page Titles** | `page_titles_all.csv` | Complete page title tags, character length optimization (30-60 chars), and pixel widths. |
+| **09** | `8_URLs.csv` | **URLs** | `internal_all.csv` | Full index of all crawlable internal URLs, status codes, response times, and hash values. |
+| **10** | `9_Images.csv` | **Images** | `images_all.csv` | Comprehensive image audit, missing alt text tags, image dimensions, and payload sizes. |
+| **11** | `10_Search_Console_Status.csv`| **Search Console Status** | `search_console_all.csv` / `response_codes_all.csv` | HTTP response codes verification, crawl errors, redirects, and indexability signals. |
+| **12** | `11_Canonicals.csv` | **Canonicals** | `canonicals_all.csv` | Canonical link tags, self-canonicalization verification, and canonical mismatch issues. |
 
 ---
 

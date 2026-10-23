@@ -135,6 +135,66 @@ def extract_last_fatal_error(trace_path: str) -> Optional[str]:
     return None
 
 
+def inspect_robots_and_sitemap(target_url: str) -> dict:
+    """
+    Performs a 0.5s pre-flight check on target_domain/robots.txt and target_domain/sitemap.xml.
+    Returns status indicators without blocking or slowing the crawl.
+    """
+    import urllib.parse
+    import urllib.request
+
+    parsed = urllib.parse.urlparse(target_url)
+    base_origin = f"{parsed.scheme}://{parsed.netloc}"
+    robots_url = f"{base_origin}/robots.txt"
+    sitemap_url = f"{base_origin}/sitemap.xml"
+
+    result = {
+        "robots_ok": False,
+        "robots_status": "Missing",
+        "sitemap_ok": False,
+        "sitemap_status": "Missing",
+        "sitemaps_declared": []
+    }
+
+    # 1. Quick check robots.txt
+    try:
+        req = urllib.request.Request(
+            robots_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status == 200:
+                result["robots_ok"] = True
+                result["robots_status"] = "200 OK"
+                content = resp.read().decode("utf-8", errors="replace")
+                for line in content.splitlines():
+                    if line.lower().startswith("sitemap:"):
+                        declared = line.split(":", 1)[1].strip()
+                        if declared:
+                            result["sitemaps_declared"].append(declared)
+    except Exception:
+        result["robots_status"] = "404 Not Found"
+
+    # 2. Quick check sitemap.xml
+    try:
+        req = urllib.request.Request(
+            sitemap_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FrogPipe/2.5"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status == 200:
+                result["sitemap_ok"] = True
+                result["sitemap_status"] = "Found (200 OK)"
+    except Exception:
+        if result["sitemaps_declared"]:
+            result["sitemap_ok"] = True
+            result["sitemap_status"] = f"Declared ({len(result['sitemaps_declared'])} map)"
+        else:
+            result["sitemap_status"] = "404 Missing"
+
+    return result
+
+
 def run_headless_crawl(
     target_url: str,
     output_dir: str,
@@ -163,6 +223,13 @@ def run_headless_crawl(
 
     target_url = normalize_url(target_url)
     os.makedirs(output_dir, exist_ok=True)
+
+    # Pre-flight Robots.txt & Sitemap Recon (0.3s)
+    pre_recon = inspect_robots_and_sitemap(target_url)
+    r_badge = f"[bold bright_green]robots.txt: {pre_recon['robots_status']}[/bold bright_green]" if pre_recon['robots_ok'] else f"[yellow]robots.txt: {pre_recon['robots_status']}[/yellow]"
+    s_badge = f"[bold bright_green]sitemap: {pre_recon['sitemap_status']}[/bold bright_green]" if pre_recon['sitemap_ok'] else f"[yellow]sitemap: {pre_recon['sitemap_status']}[/yellow]"
+    print_success(f"Pre-Flight Recon: {r_badge} • {s_badge}")
+
 
     # Path to Screaming Frog live trace log
     trace_path = os.path.expanduser(r"~/.ScreamingFrogSEOSpider/trace.txt")

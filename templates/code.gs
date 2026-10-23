@@ -74,17 +74,32 @@ function doPost(e) {
     let ss;
 
     // -----------------------------------------------------------------------
-    // Action: init_audit (Creates Spreadsheet, Sets Theme & Competitors Tab)
+    // Action: init_audit (Creates Spreadsheet, Sets Public Sharing & Initial Tabs)
     // -----------------------------------------------------------------------
     if (action === "init_audit") {
       const spreadsheetTitle = data.title || ("SEO Audit & Competitors Analysis for " + domain);
       ss = SpreadsheetApp.create(spreadsheetTitle);
       sheetId = ss.getId();
 
-      const compSheet = ss.getActiveSheet();
-      compSheet.setName("Competitors Analysis");
+      // Automatically configure Public View Access (No Request Access Permission Gate!)
+      try {
+        DriveApp.getFileById(sheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (shareErr) {}
+
+      // Tab 1: Executive Summary Cover Tab
+      const firstSheet = ss.getActiveSheet();
+      firstSheet.setName("Executive Summary");
+      firstSheet.setTabColor(getTabColor("Executive Summary"));
+      if (data.executive_data && data.executive_data.length > 0) {
+        formatHighGradeTab(firstSheet, data.executive_data, domain, "Executive Summary");
+      }
+
+      // Tab 2: Competitors Analysis Matrix
+      const compSheet = ss.insertSheet("Competitors Analysis");
       compSheet.setTabColor(getTabColor("Competitors Analysis"));
-      formatCompetitorsTab(compSheet, data.competitors_data, domain);
+      formatCompetitorsTab(compSheet, data.competitors_data || [], domain);
+
+      ss.setActiveSheet(firstSheet);
 
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
@@ -120,6 +135,50 @@ function doPost(e) {
     }
 
     // -----------------------------------------------------------------------
+    // Action: finalize_audit (Orders Tabs & Focuses Executive Summary)
+    // -----------------------------------------------------------------------
+    if (action === "finalize_audit") {
+      if (!sheetId) throw new Error("Missing sheet_id for finalize_audit action.");
+      ss = SpreadsheetApp.openById(sheetId);
+      
+      const tabOrder = [
+        "Executive Summary",
+        "Competitors Analysis",
+        "Issues",
+        "H1",
+        "H2",
+        "Meta Description",
+        "Meta Tags",
+        "Content",
+        "ALL page Titles",
+        "URLs",
+        "Images",
+        "Search Console Status",
+        "HTTP Status & Response Codes",
+        "Canonicals"
+      ];
+
+      for (let i = 0; i < tabOrder.length; i++) {
+        const s = ss.getSheetByName(tabOrder[i]);
+        if (s) {
+          try {
+            ss.setActiveSheet(s);
+            ss.moveActiveSheet(i + 1);
+          } catch (e) {}
+        }
+      }
+
+      const execSheet = ss.getSheetByName("Executive Summary");
+      if (execSheet) ss.setActiveSheet(execSheet);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        sheet_id: sheetId,
+        message: "Audit finalized and tabs arranged in executive order."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------------
     // Action: create_audit (Full Batch High-Grade Execution)
     // -----------------------------------------------------------------------
     const spreadsheetTitle = data.title || ("SEO Audit & Competitors Analysis for " + domain);
@@ -128,6 +187,9 @@ function doPost(e) {
     if (!sheetId) {
       ss = SpreadsheetApp.create(spreadsheetTitle);
       sheetId = ss.getId();
+      try {
+        DriveApp.getFileById(sheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (shareErr) {}
     } else {
       ss = SpreadsheetApp.openById(sheetId);
     }
@@ -135,6 +197,7 @@ function doPost(e) {
     const defaultSheet = ss.getSheetByName("Sheet1");
 
     const tabOrder = [
+      "Executive Summary",
       "Competitors Analysis",
       "Issues",
       "H1",
@@ -193,6 +256,7 @@ function doPost(e) {
  */
 function getTabColor(tabName) {
   const map = {
+    "Executive Summary": "#0F172A",    // Deep Obsidian Slate
     "Competitors Analysis": "#F59E0B", // Cyber Amber Gold
     "Issues": "#EF4444",               // Neon Crimson
     "H1": "#10B981",                   // Emerald Green
@@ -516,6 +580,21 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
             cellBg = "#DCFCE7"; cellFont = "#15803D";
           }
         }
+        // Executive Summary Diagnostic Status
+        if (tabName === "Executive Summary") {
+          if (r === 0) {
+            cellBg = "#F0FDF4"; cellFont = "#166534"; cellWeight = "bold";
+          } else if (c === 3) {
+            cellWeight = "bold";
+            if (lowerVal.indexOf("optimal") !== -1 || lowerVal.indexOf("healthy") !== -1 || lowerVal.indexOf("perfect") !== -1 || lowerVal.indexOf("verified") !== -1) {
+              cellBg = "#D1FAE5"; cellFont = "#065F46";
+            } else if (lowerVal.indexOf("action") !== -1 || lowerVal.indexOf("critical") !== -1) {
+              cellBg = "#FEE2E2"; cellFont = "#991B1B";
+            } else if (lowerVal.indexOf("review") !== -1 || lowerVal.indexOf("attention") !== -1 || lowerVal.indexOf("normal") !== -1) {
+              cellBg = "#FEF3C7"; cellFont = "#92400E";
+            }
+          }
+        }
         // H. Missing Tags & Alt Text Alerts
         else if (lowerVal === "missing" || (val === "0" && (colName.indexOf("h1") !== -1 || colName.indexOf("h2") !== -1 || colName.indexOf("alt") !== -1))) {
           cellBg = "#FFF1F2"; cellFont = "#BE123C"; cellWeight = "bold";
@@ -545,8 +624,16 @@ function formatHighGradeTab(sheet, rows, domain, tabName) {
   for (let c = 1; c <= numCols; c++) {
     const colTitle = String(rawHeaders[c - 1] || "").toLowerCase();
 
+    // Executive Summary Tab Dimensions
+    if (tabName === "Executive Summary") {
+      const execWidths = [320, 200, 260, 200];
+      sheet.setColumnWidth(c, execWidths[c - 1] || 200);
+      if (c === 4 && numDataRows > 0) {
+        sheet.getRange(3, c, numDataRows, 1).setHorizontalAlignment("center");
+      }
+    }
     // URLs and Address columns get wide 460px breathing room
-    if (colTitle.indexOf("address") !== -1 || colTitle.indexOf("url") !== -1 || colTitle.indexOf("link") !== -1 || colTitle.indexOf("destination") !== -1 || colTitle.indexOf("source") !== -1 || colTitle.indexOf("canonical") !== -1) {
+    else if (colTitle.indexOf("address") !== -1 || colTitle.indexOf("url") !== -1 || colTitle.indexOf("link") !== -1 || colTitle.indexOf("destination") !== -1 || colTitle.indexOf("source") !== -1 || colTitle.indexOf("canonical") !== -1) {
       sheet.setColumnWidth(c, 460);
       if (numDataRows > 0) sheet.getRange(3, c, numDataRows, 1).setHorizontalAlignment("left");
     }

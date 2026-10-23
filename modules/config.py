@@ -127,10 +127,31 @@ def load_auth_token() -> Optional[str]:
 
 
 def load_spider_config_path() -> Optional[str]:
-    """Loads optional custom .seospiderconfig profile path from config.json."""
+    """Loads optional custom .seospiderconfig profile path from config.json or configs/ folder."""
     cfg = load_config()
     path = cfg.get("spider_config_file", "").strip().strip('"\'')
-    return path if path and os.path.isfile(path) else None
+    if path and os.path.isfile(path):
+        return path
+
+    # Auto-detect default profiles in configs/ folder (e.g. ecommerce.seospiderconfig)
+    proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for default_name in ["ecommerce.seospiderconfig", "default.seospiderconfig"]:
+        candidate = os.path.join(proj_root, "configs", default_name)
+        if os.path.isfile(candidate):
+            return candidate
+
+    return None
+
+
+def load_moz_credentials() -> tuple[Optional[str], Optional[str]]:
+    """Loads optional Moz API credentials (access_id, secret_key) from config.json."""
+    cfg = load_config()
+    access_id = cfg.get("moz_access_id", "").strip()
+    secret_key = cfg.get("moz_secret_key", "").strip()
+    if access_id and secret_key:
+        return access_id, secret_key
+    return None, None
+
 
 
 

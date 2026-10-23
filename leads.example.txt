@@ -1,0 +1,7 @@
+# FrogPipe Batch Lead Gen Target List
+# Lines starting with # or empty lines are ignored.
+# Add full URLs or bare domains:
+
+https://r1fat.pages.dev
+http://drstangale.com
+https://pranfoods.net

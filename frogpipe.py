@@ -90,6 +90,12 @@ def parse_arguments():
         help="Retain raw crawl dump directory instead of cleaning up"
     )
     parser.add_argument(
+        "-f", "--file",
+        type=str,
+        default=None,
+        help="Batch Lead Gen Mode: Path to text file containing target website URLs (one URL per line)"
+    )
+    parser.add_argument(
         "-l", "--limit",
         type=int,
         default=None,
@@ -147,42 +153,19 @@ def sweep_old_temp_crawls():
                 pass
 
 
-def main():
-    print_banner()
-
-    # Pre-sweep abandoned temporary crawls from previous runs
-    sweep_old_temp_crawls()
-
-    args = parse_arguments()
-
-    # Verify or prompt for Screaming Frog CLI path
-    cli_path = get_screaming_frog_cli()
-    if not cli_path:
-        cli_path = prompt_and_save_frog_cli()
-        if not cli_path:
-            print_error("Screaming Frog CLI path was not provided. Exiting.")
-            sys.exit(1)
-
-    print_success(f"Engine Linked: [dim]{cli_path}[/dim]")
-
-    # Resolve target URL
-    raw_url = args.url if args.url else get_interactive_url()
-    if not raw_url:
-        print_error("No target URL specified. Exiting.")
-        sys.exit(1)
-
+def audit_single_target(
+    raw_url: str,
+    cli_path: str,
+    args: argparse.Namespace,
+    competitor_list: list[str]
+) -> dict:
+    """
+    Executes the end-to-end 4-phase audit pipeline for a single target URL.
+    Returns audit result metadata dictionary.
+    """
     target_url = normalize_url(raw_url)
     clean_domain = extract_clean_domain(target_url)
 
-    # Resolve Competitor Domains
-    if args.competitors:
-        competitor_list = [c.strip() for c in args.competitors.split(",") if c.strip()]
-    elif not args.url:
-        competitor_list = get_interactive_competitors()
-    else:
-        competitor_list = []
-
-    # Temporary crawl workspace with guaranteed lifecycle management
     temp_dir = os.path.join(get_temp_crawl_dir(), f"crawl_{clean_domain}_{int(time.time())}")
 
     def cleanup_workspace():
@@ -191,9 +174,6 @@ def main():
                 shutil.rmtree(temp_dir, ignore_errors=True)
             except Exception:
                 pass
-
-    import atexit
-    atexit.register(cleanup_workspace)
 
     try:
         # 1. Execute Headless Crawl
@@ -206,10 +186,17 @@ def main():
         )
 
         if not crawl_ok:
-            print_error("Crawl process terminated unexpectedly. Review logs.")
-            sys.exit(1)
+            print_error(f"Crawl terminated unexpectedly for {clean_domain}.")
+            return {
+                "url": target_url,
+                "domain": clean_domain,
+                "status": "Failed",
+                "folder": None,
+                "sheet_url": None,
+                "excel_path": None
+            }
 
-        # 2. Package and Normalize the 11 Audit Datasets (Zero Data Loss)
+        # 2. Package and Normalize Audit Datasets (Zero Data Loss)
         target_folder, datasets = organize_audit_datasets(
             raw_crawl_dir=temp_dir,
             target_url=target_url,
@@ -234,11 +221,147 @@ def main():
             excel_path=excel_path
         )
 
+        return {
+            "url": target_url,
+            "domain": clean_domain,
+            "status": "Success",
+            "folder": target_folder,
+            "sheet_url": sheet_url,
+            "excel_path": excel_path
+        }
+
+    finally:
+        cleanup_workspace()
+
+
+def print_batch_summary(results: list[dict]):
+    """Renders a consolidated master report table for batch lead generation audits."""
+    if HAS_RICH:
+        from rich.table import Table
+        table = Table(
+            title="🐸 FROGPIPE BATCH / LEAD GEN CONSOLIDATED AUDIT REPORT",
+            title_style="bold bright_green",
+            border_style="bright_blue",
+            header_style="bold bright_white on blue"
+        )
+        table.add_column("Domain / Target", style="bold bright_white", width=25)
+        table.add_column("Status", justify="center", width=12)
+        table.add_column("Live Google Sheet (Public View)", style="bright_cyan", width=55)
+        table.add_column("Offline Master Excel", style="dim", width=35)
+
+        for res in results:
+            stat = "[bold bright_green]COMPLETED[/bold bright_green]" if res.get("status") == "Success" else "[bold red]FAILED[/bold red]"
+            sheet_disp = res.get("sheet_url") or "[dim]N/A (Offline mode)[/dim]"
+            excel_disp = os.path.basename(res.get("excel_path", "")) if res.get("excel_path") else "[dim]-[/dim]"
+            table.add_row(res.get("domain", "Unknown"), stat, sheet_disp, excel_disp)
+
+        console.print()
+        console.print(table)
+        console.print()
+    else:
+        print("\n" + "=" * 80)
+        print("FROGPIPE BATCH AUDIT CONSOLIDATED REPORT")
+        print("=" * 80)
+        for res in results:
+            print(f"Domain:    {res.get('domain')}")
+            print(f"Status:    {res.get('status')}")
+            print(f"Sheet URL: {res.get('sheet_url') or 'N/A'}")
+            print(f"Excel:     {res.get('excel_path') or 'N/A'}")
+            print("-" * 80)
+
+
+def main():
+    print_banner()
+
+    # Pre-sweep abandoned temporary crawls from previous runs
+    sweep_old_temp_crawls()
+
+    args = parse_arguments()
+
+    # Verify or prompt for Screaming Frog CLI path
+    cli_path = get_screaming_frog_cli()
+    if not cli_path:
+        cli_path = prompt_and_save_frog_cli()
+        if not cli_path:
+            print_error("Screaming Frog CLI path was not provided. Exiting.")
+            sys.exit(1)
+
+    print_success(f"Engine Linked: [dim]{cli_path}[/dim]")
+
+    # Resolve Competitor Domains (global or default)
+    competitor_list = [c.strip() for c in args.competitors.split(",") if c.strip()] if args.competitors else []
+
+    # -------------------------------------------------------------------------
+    # Mode A: Batch / Lead Gen Mode (--file leads.txt)
+    # -------------------------------------------------------------------------
+    if args.file:
+        leads_path = os.path.abspath(args.file)
+        if not os.path.isfile(leads_path):
+            print_error(f"Batch file not found: {leads_path}")
+            sys.exit(1)
+
+        with open(leads_path, "r", encoding="utf-8") as f:
+            targets = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+
+        if not targets:
+            print_error(f"Batch file {leads_path} contains no valid target URLs.")
+            sys.exit(1)
+
+        print_step("Batch Engine Activated", f"Loaded {len(targets)} target websites from {os.path.basename(leads_path)}", phase=(1, 4))
+        
+        batch_results = []
+        for idx, target_raw in enumerate(targets, start=1):
+            if HAS_RICH:
+                console.print(f"\n[bold bright_yellow]⚡ BATCH AUDIT [{idx}/{len(targets)}]: {target_raw}[/bold bright_yellow]")
+            else:
+                print(f"\n--- BATCH AUDIT [{idx}/{len(targets)}]: {target_raw} ---")
+
+            try:
+                res = audit_single_target(
+                    raw_url=target_raw,
+                    cli_path=cli_path,
+                    args=args,
+                    competitor_list=competitor_list
+                )
+                batch_results.append(res)
+            except KeyboardInterrupt:
+                print_warning("\nBatch run interrupted by user (Ctrl+C). Generating summary for completed audits...")
+                break
+            except Exception as batch_err:
+                print_error(f"Error auditing {target_raw}: {batch_err}")
+                batch_results.append({
+                    "url": target_raw,
+                    "domain": extract_clean_domain(target_raw),
+                    "status": "Failed",
+                    "folder": None,
+                    "sheet_url": None,
+                    "excel_path": None
+                })
+
+        print_batch_summary(batch_results)
+        return
+
+    # -------------------------------------------------------------------------
+    # Mode B: Single Site Interactive / CLI Audit Mode
+    # -------------------------------------------------------------------------
+    raw_url = args.url if args.url else get_interactive_url()
+    if not raw_url:
+        print_error("No target URL specified. Exiting.")
+        sys.exit(1)
+
+    if not args.competitors and not args.url:
+        competitor_list = get_interactive_competitors()
+
+    try:
+        audit_single_target(
+            raw_url=raw_url,
+            cli_path=cli_path,
+            args=args,
+            competitor_list=competitor_list
+        )
     except KeyboardInterrupt:
         print_warning("\nAudit interrupted by user (Ctrl+C). Cleaning up workspace...")
         sys.exit(130)
-    finally:
-        cleanup_workspace()
 
 
 if __name__ == "__main__":
