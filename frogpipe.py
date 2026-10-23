@@ -109,6 +109,12 @@ def parse_arguments():
         default=None,
         help="Maximum URLs to crawl (requires custom spider config profile in CLI mode)"
     )
+    parser.add_argument(
+        "--sync-folder",
+        type=str,
+        default=None,
+        help="Compile Master Excel and push to Google Sheets directly from an existing audit folder without crawling (e.g. audited_sites/SEO_toshiba_com)"
+    )
     return parser.parse_args()
 
 
@@ -288,6 +294,45 @@ def main():
     sweep_old_temp_crawls()
 
     args = parse_arguments()
+
+    # -------------------------------------------------------------------------
+    # Mode 0: Direct Deliverables Sync (--sync-folder audited_sites/SEO_xxx)
+    # -------------------------------------------------------------------------
+    if args.sync_folder:
+        target_folder = os.path.abspath(args.sync_folder)
+        if not os.path.isdir(target_folder):
+            print_error(f"Target audit folder not found: {target_folder}")
+            sys.exit(1)
+        folder_name = os.path.basename(target_folder)
+        clean_domain = folder_name.replace("SEO_", "").replace("_", ".")
+        competitor_list = [c.strip() for c in args.competitors.split(",") if c.strip()] if args.competitors else []
+        print_step("Direct Sync Engine", f"Re-syncing deliverables for: {clean_domain}", phase=(3, 4))
+
+        sheet_url, excel_path = sync_to_google_sheet(
+            target_folder=target_folder,
+            domain=clean_domain,
+            webhook_url=args.webhook,
+            competitors=competitor_list,
+            max_sheet_rows=args.max_sheet_rows,
+            max_excel_rows=args.max_excel_rows,
+            skip_webhook=args.no_sheet
+        )
+        datasets_summary = []
+        manifest_path = os.path.join(target_folder, "audit_manifest.json")
+        if os.path.isfile(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as mf:
+                    datasets_summary = json.load(mf).get("datasets", [])
+            except Exception:
+                pass
+
+        print_files_summary(
+            folder_path=target_folder,
+            datasets=datasets_summary,
+            sheet_url=sheet_url,
+            excel_path=excel_path
+        )
+        return
 
     # Verify or prompt for Screaming Frog CLI path
     cli_path = get_screaming_frog_cli()

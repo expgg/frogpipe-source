@@ -7,6 +7,7 @@ Portfolio: https://r1fat.pages.dev
 import os
 import csv
 import json
+import re
 import requests
 import pandas as pd
 from typing import Dict, List, Any, Optional
@@ -15,9 +16,26 @@ try:
     import openpyxl
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
     HAS_OPENPYXL = True
 except ImportError:
     HAS_OPENPYXL = False
+    ILLEGAL_CHARACTERS_RE = re.compile(r'[\000-\010]|[\013-\014]|[\016-\037]')
+
+
+def sanitize_excel_cell(val: Any) -> str:
+    """Sanitizes strings to strip control characters and binary artifacts forbidden by Excel/openpyxl."""
+    if val is None:
+        return ""
+    val_str = str(val).strip()
+    if not val_str:
+        return ""
+    val_str = ILLEGAL_CHARACTERS_RE.sub("", val_str)
+    # Strip any remaining non-printable control characters except standard whitespace
+    if any(ord(c) < 32 and c not in "\n\r\t" for c in val_str):
+        val_str = "".join(c for c in val_str if c.isprintable() or c in "\n\r\t")
+    return val_str
+
 
 from modules.config import (
     AUDIT_TABS_MAPPING,
@@ -38,7 +56,7 @@ from modules.ui import (
 
 
 def load_csv_as_matrix(file_path: str) -> List[List[Any]]:
-    """Reads a CSV file into a 2D matrix preserving 100% of rows and columns."""
+    """Reads a CSV file into a 2D matrix preserving 100% of rows and columns with XML/Excel sanitization."""
     if not os.path.isfile(file_path):
         return []
     rows = []
@@ -46,15 +64,16 @@ def load_csv_as_matrix(file_path: str) -> List[List[Any]]:
         with open(file_path, "r", encoding="utf-8-sig", errors="replace") as f:
             reader = csv.reader(f)
             for r in reader:
-                # Replace None or empty placeholders
-                clean_row = ["" if col is None else str(col).strip() for col in r]
+                # Replace None or empty placeholders & strip XML/Excel-illegal control characters
+                clean_row = [sanitize_excel_cell(col) for col in r]
                 if any(clean_row):
                     rows.append(clean_row)
     except Exception:
         # Fallback using pandas
         try:
             df = pd.read_csv(file_path, dtype=str, keep_default_na=False)
-            rows = [df.columns.tolist()] + df.values.tolist()
+            raw_rows = [df.columns.tolist()] + df.values.tolist()
+            rows = [[sanitize_excel_cell(col) for col in r] for r in raw_rows]
         except Exception:
             pass
     return rows
@@ -511,7 +530,8 @@ def generate_offline_excel(
         # 3. Chromatic Column Headers (Row 2)
         ws.row_dimensions[2].height = 26
         for col_idx, (col_name, preset) in enumerate(zip(headers, col_presets), start=1):
-            cell = ws.cell(row=2, column=col_idx, value=col_name)
+            safe_header = sanitize_excel_cell(col_name)
+            cell = ws.cell(row=2, column=col_idx, value=safe_header)
             
             # Competitors Analysis Header Palette
             if tab_name == "Competitors Analysis":
@@ -539,8 +559,12 @@ def generate_offline_excel(
             is_odd = (row_idx % 2 == 1)
 
             for col_idx, raw_val in enumerate(row_vals, start=1):
-                val_str = str(raw_val or "").strip()
-                cell = ws.cell(row=row_idx, column=col_idx, value=val_str)
+                val_str = sanitize_excel_cell(raw_val)
+                try:
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val_str)
+                except Exception:
+                    safe_ascii = "".join(c for c in val_str if 32 <= ord(c) <= 126 or c in "\n\r\t")
+                    cell = ws.cell(row=row_idx, column=col_idx, value=safe_ascii)
                 cell.border = thin_border
                 
                 preset = col_presets[col_idx - 1] if col_idx - 1 < len(col_presets) else get_column_color_preset("")
