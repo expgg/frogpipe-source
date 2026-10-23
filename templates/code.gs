@@ -55,9 +55,19 @@ function doGet(e) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
+// Optional Secret Token (Leave empty string "" to allow all FrogPipe requests, or set a matching key in config.json)
+const AUTH_TOKEN = "";
+
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (AUTH_TOKEN && data.auth_token !== AUTH_TOKEN) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Unauthorized: Invalid or missing authentication token."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     const action = data.action || "create_audit";
     const domain = (data.domain || "Target Website").trim();
     let sheetId = data.sheet_id || null;
@@ -136,8 +146,10 @@ function doPost(e) {
       "URLs",
       "Images",
       "Search Console Status",
+      "HTTP Status & Response Codes",
       "Canonicals"
     ];
+
 
     tabOrder.forEach(function(tabName) {
       if (tabsData[tabName] || tabName === "Competitors Analysis") {
@@ -192,6 +204,7 @@ function getTabColor(tabName) {
     "URLs": "#475569",                 // Deep Navy Slate
     "Images": "#EC4899",               // Hot Fuchsia
     "Search Console Status": "#F97316",// Vivid Safety Orange
+    "HTTP Status & Response Codes": "#F97316", // Vivid Safety Orange
     "Canonicals": "#0EA5E9"            // Sky Blue
   };
   return map[tabName] || "#10B981";

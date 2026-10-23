@@ -75,27 +75,63 @@ def get_temp_crawl_dir() -> str:
     return p
 
 
+import platform
+import shutil
+
+
 def get_screaming_frog_cli() -> Optional[str]:
-    """Finds path to Screaming Frog SEO Spider CLI executable."""
+    """Finds path to Screaming Frog SEO Spider CLI executable across Windows, macOS, and Linux."""
     # 1. Check saved config.json
     cfg = load_config()
     saved_path = cfg.get("screaming_frog_cli", "").strip().strip('"\'')
     if saved_path and os.path.isfile(saved_path):
         return saved_path
 
-    # 2. Check standard candidate paths
-    candidates = [
-        r"X:\APPS\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
-        r"C:\Program Files\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
-        r"C:\Program Files (x86)\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
-        r"D:\APPS\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
-    ]
+    # 2. Check system-specific standard candidate paths
+    system = platform.system()
+    candidates = []
+    if system == "Windows":
+        candidates = [
+            r"X:\APPS\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
+            r"C:\Program Files\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
+            r"C:\Program Files (x86)\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
+            r"D:\APPS\Screaming Frog SEO Spider\ScreamingFrogSEOSpiderCli.exe",
+        ]
+    elif system == "Darwin":  # macOS
+        candidates = [
+            "/Applications/Screaming Frog SEO Spider.app/Contents/MacOS/ScreamingFrogSEOSpiderCli",
+            "/Applications/Screaming Frog SEO Spider.app/Contents/MacOS/ScreamingFrogSEOSpiderLauncher"
+        ]
+    else:  # Linux / Unix
+        which_path = shutil.which("screamingfrogseospider") or shutil.which("screamingfrogseospidercli")
+        if which_path:
+            candidates.append(which_path)
+        candidates.extend([
+            "/usr/bin/screamingfrogseospider",
+            "/usr/local/bin/screamingfrogseospider"
+        ])
+
     for c in candidates:
         if os.path.isfile(c):
             # Auto-persist to config for fast future lookups
             save_config_value("screaming_frog_cli", c)
             return c
     return None
+
+
+def load_auth_token() -> Optional[str]:
+    """Loads optional Google Apps Script secret authentication token from config.json."""
+    cfg = load_config()
+    token = cfg.get("auth_token", "").strip()
+    return token if token else None
+
+
+def load_spider_config_path() -> Optional[str]:
+    """Loads optional custom .seospiderconfig profile path from config.json."""
+    cfg = load_config()
+    path = cfg.get("spider_config_file", "").strip().strip('"\'')
+    return path if path and os.path.isfile(path) else None
+
 
 
 def prompt_and_save_frog_cli() -> Optional[str]:

@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from typing import Optional, Dict, Any
 
-from modules.config import get_screaming_frog_cli, normalize_url
+from modules.config import get_screaming_frog_cli, normalize_url, load_spider_config_path
 from modules.ui import (
     HAS_RICH,
     console,
@@ -32,6 +32,52 @@ if HAS_RICH:
     )
 
 
+def ensure_high_capacity_storage():
+    """
+    Ensures Screaming Frog's Derby database cache is placed on a high-capacity drive
+    (e.g. X:\\ if available) instead of filling the user's C: drive under 5.0 GB.
+    """
+    config_path = os.path.expanduser("~/.ScreamingFrogSEOSpider/spider.config")
+    if not os.path.exists(config_path):
+        return
+    try:
+        with open(config_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        
+        current_dir = ""
+        for line in lines:
+            if line.startswith("storage.db_dir="):
+                current_dir = line.split("=", 1)[1].strip()
+                break
+
+        # If current_dir is on C: and drive X:\ exists with ample space (> 20 GB)
+        if "c\\" in current_dir.lower() or "c:" in current_dir.lower() or not current_dir:
+            drive_x = "X:\\"
+            if os.path.exists(drive_x):
+                try:
+                    total_x, used_x, free_x = shutil.disk_usage(drive_x)
+                    if (free_x / (1024 ** 3)) > 20.0:
+                        x_db_dir = r"X:\ScreamingFrog_Cache"
+                        os.makedirs(x_db_dir, exist_ok=True)
+                        new_lines = []
+                        found = False
+                        for line in lines:
+                            if line.startswith("storage.db_dir="):
+                                new_lines.append(r"storage.db_dir=X\:\\ScreamingFrog_Cache" + "\n")
+                                found = True
+                            else:
+                                new_lines.append(line)
+                        if not found:
+                            new_lines.append(r"storage.db_dir=X\:\\ScreamingFrog_Cache" + "\n")
+                        with open(config_path, "w", encoding="utf-8") as f:
+                            f.writelines(new_lines)
+                        print_success(f"Storage Cache Relocated: [bold cyan]X:\\ScreamingFrog_Cache[/bold cyan] (Ample space on X: drive protects C: drive from filling up)")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 def check_and_clean_disk_space() -> float:
     """
     Checks free disk space on the drive hosting Screaming Frog project data.
@@ -44,8 +90,9 @@ def check_and_clean_disk_space() -> float:
         total, used, free = shutil.disk_usage(check_path)
         free_gb = free / (1024 ** 3)
 
-        if free_gb < 6.0:
-            inst_dir = os.path.join(spider_home, "ProjectInstanceData")
+        # Always inspect ProjectInstanceData for abandoned instances
+        for search_root in [spider_home, r"X:\ScreamingFrog_Cache"]:
+            inst_dir = os.path.join(search_root, "ProjectInstanceData")
             if os.path.exists(inst_dir):
                 cleaned_bytes = 0
                 for item in os.listdir(inst_dir):
@@ -61,9 +108,10 @@ def check_and_clean_disk_space() -> float:
                             pass
                 if cleaned_bytes > 0:
                     print_warning(f"Purged {cleaned_bytes / (1024**2):.1f} MB of orphaned Screaming Frog cache to free up disk space.")
-                # Recalculate
-                total, used, free = shutil.disk_usage(check_path)
-                free_gb = free / (1024 ** 3)
+
+        # Recalculate
+        total, used, free = shutil.disk_usage(check_path)
+        free_gb = free / (1024 ** 3)
         return free_gb
     except Exception:
         return 999.0
@@ -91,6 +139,7 @@ def run_headless_crawl(
     target_url: str,
     output_dir: str,
     crawl_limit: Optional[int] = None,
+    config_file: Optional[str] = None,
     verbose: bool = False
 ) -> bool:
     """
@@ -102,6 +151,9 @@ def run_headless_crawl(
         print_error("Screaming Frog CLI executable not found on this machine.")
         print_warning("Checked: X:\\APPS\\Screaming Frog SEO Spider and C:\\Program Files...")
         return False
+
+    # Proactive high-capacity storage optimization
+    ensure_high_capacity_storage()
 
     # Pre-flight disk space health check (Screaming Frog hard stops if free disk < 5.0 GB)
     free_gb = check_and_clean_disk_space()
@@ -144,9 +196,16 @@ def run_headless_crawl(
         "--save-report", save_reports,
     ]
 
+    # Optional custom .seospiderconfig profile support
+    active_config = config_file or load_spider_config_path()
+    if active_config and os.path.isfile(active_config):
+        cmd.extend(["--config", active_config])
+        print_success(f"Loaded Spider Config: [dim]{active_config}[/dim]")
+
     print_step("Headless Spider Engine Activated", f"Target: {target_url}", phase=(1, 4))
     if verbose:
         print(f"Command: {' '.join(cmd)}")
+
 
     start_time = time.time()
 

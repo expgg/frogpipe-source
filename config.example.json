@@ -1,4 +1,7 @@
 {
   "screaming_frog_cli": "C:\\Program Files\\Screaming Frog SEO Spider\\ScreamingFrogSEOSpiderCli.exe",
+  "sheet_webhook_url": "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+  "auth_token": "",
+  "spider_config_file": "",
   "default_example_url": "https://r1fat.pages.dev"
 }

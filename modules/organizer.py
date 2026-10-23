@@ -27,66 +27,40 @@ def get_csv_row_count(file_path: str) -> int:
         return 0
 
 
-def merge_h1_h2(h1_file: str, h2_file: str, output_file: str) -> bool:
-    """
-    Combines H1 and H2 crawl CSVs on Address into a single unified 2_H1_H2.csv file.
-    """
-    try:
-        h1_df = pd.read_csv(h1_file, low_memory=False) if os.path.isfile(h1_file) else None
-        h2_df = pd.read_csv(h2_file, low_memory=False) if os.path.isfile(h2_file) else None
-
-        if h1_df is not None and h2_df is not None:
-            # Keep key columns from H1 and H2
-            cols_h1 = [c for c in h1_df.columns if c in ["Address", "H1-1", "H1-2", "H1-Length 1", "H1-Length 2", "Status Code", "Indexability"]]
-            cols_h2 = [c for c in h2_df.columns if c in ["Address", "H2-1", "H2-2", "H2-Length 1", "H2-Length 2"]]
-            
-            sub_h1 = h1_df[cols_h1] if cols_h1 else h1_df
-            sub_h2 = h2_df[cols_h2] if cols_h2 else h2_df
-            
-            merged = pd.merge(sub_h1, sub_h2, on="Address", how="outer")
-            merged.to_csv(output_file, index=False, encoding="utf-8-sig")
-            return True
-        elif h1_df is not None:
-            h1_df.to_csv(output_file, index=False, encoding="utf-8-sig")
-            return True
-        elif h2_df is not None:
-            h2_df.to_csv(output_file, index=False, encoding="utf-8-sig")
-            return True
-    except Exception as e:
-        # Fallback copy
-        if os.path.isfile(h1_file):
-            shutil.copyfile(h1_file, output_file)
-            return True
-    return False
-
-
 def organize_audit_datasets(
     raw_crawl_dir: str,
     target_url: str,
     custom_output_dir: str = None
 ) -> tuple[str, List[Dict[str, Any]]]:
     """
-    Scans raw crawl files, processes and maps them to the teacher's exact 10 datasets,
+    Scans raw crawl files, processes and maps them to the teacher's exact 11 datasets,
     preserving 100% of the raw columns (zero data loss), and packages them inside
-    Desktop/SEO_<Website_Name>.
+    audited_sites/SEO_<Website_Name>.
     """
     target_folder = custom_output_dir or get_target_seo_folder(target_url)
     os.makedirs(target_folder, exist_ok=True)
 
     print_step("Normalizing Datasets", f"Packaging 11 Audit Tabs to: {target_folder}", phase=(2, 4))
 
-    # Process all 10 datasets preserving 100% of all data columns
+    # Track adaptive titles (e.g. if Search Console is actually HTTP Response Codes)
+    tab_titles_resolved = {}
+
+    # Process all 11 datasets preserving 100% of all data columns
     for key, info in AUDIT_TABS_MAPPING.items():
         src_filename = info.get("raw_source")
         dst_filename = info.get("target_file")
         src_path = os.path.join(raw_crawl_dir, src_filename)
         dst_path = os.path.join(target_folder, dst_filename)
+        resolved_title = info["title"]
 
         # Special fallback for Search Console: if empty or missing, fallback to response_codes_all.csv
         if key == "search_console":
             resp_src = os.path.join(raw_crawl_dir, "response_codes_all.csv")
             if (not os.path.isfile(src_path) or get_csv_row_count(src_path) == 0) and os.path.isfile(resp_src):
                 src_path = resp_src
+                resolved_title = "HTTP Status & Response Codes"
+
+        tab_titles_resolved[key] = resolved_title
 
         # Special fallback for Meta Tags: if directives_all.csv missing, check internal_all.csv or meta_keywords
         if key == "meta_tags":
@@ -115,10 +89,11 @@ def organize_audit_datasets(
         exists = os.path.isfile(dst_path)
         size_kb = (os.path.getsize(dst_path) / 1024.0) if exists else 0.0
         row_count = get_csv_row_count(dst_path) if exists else 0
+        current_title = tab_titles_resolved.get(key, info["title"])
 
         datasets_summary.append({
             "key": key,
-            "title": info["title"],
+            "title": current_title,
             "target_file": info["target_file"],
             "description": info["description"],
             "found": exists,
@@ -126,6 +101,7 @@ def organize_audit_datasets(
             "rows": row_count,
             "full_path": dst_path
         })
+
 
 
     # Write manifest.json

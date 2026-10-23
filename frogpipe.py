@@ -62,6 +62,24 @@ def parse_arguments():
         help="Skip Google Sheets sync (only package CSVs and offline Excel workbook)"
     )
     parser.add_argument(
+        "-c", "--competitors",
+        type=str,
+        default=None,
+        help="Comma-separated competitor URLs/domains for the Competitor Matrix (e.g. comp1.com,comp2.com)"
+    )
+    parser.add_argument(
+        "--config-file",
+        type=str,
+        default=None,
+        help="Path to custom .seospiderconfig profile for advanced spider settings/limits"
+    )
+    parser.add_argument(
+        "--max-sheet-rows",
+        type=int,
+        default=1500,
+        help="Maximum rows to stream per tab in Google Sheets (default: 1500, preserves full dataset in Excel)"
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Display verbose logging from Screaming Frog CLI"
@@ -75,10 +93,9 @@ def parse_arguments():
         "-l", "--limit",
         type=int,
         default=None,
-        help="Maximum number of URLs to crawl (e.g. 200, 500) — useful for large sites"
+        help="Maximum URLs to crawl (requires custom spider config profile in CLI mode)"
     )
     return parser.parse_args()
-
 
 
 def get_interactive_url() -> str:
@@ -96,8 +113,45 @@ def get_interactive_url() -> str:
         return url or DEFAULT_EXAMPLE_URL
 
 
+def get_interactive_competitors() -> list[str]:
+    """Prompts user interactively for optional competitor URLs."""
+    if HAS_RICH:
+        from rich.prompt import Prompt
+        ans = Prompt.ask(
+            "[bold cyan]Enter Competitor URLs[/bold cyan] [dim](comma-separated, or press Enter to skip)[/dim]",
+            default=""
+        )
+        console.print()
+        if ans:
+            return [c.strip() for c in ans.split(",") if c.strip()]
+        return []
+    else:
+        ans = input("Enter Competitor URLs (comma-separated, or Enter to skip): ").strip()
+        return [c.strip() for c in ans.split(",") if c.strip()] if ans else []
+
+
+def sweep_old_temp_crawls():
+    """Removes abandoned crawl folders in temp_crawl older than 2 hours."""
+    temp_root = get_temp_crawl_dir()
+    if not os.path.exists(temp_root):
+        return
+    now = time.time()
+    for item in os.listdir(temp_root):
+        item_path = os.path.join(temp_root, item)
+        if os.path.isdir(item_path) and item.startswith("crawl_"):
+            try:
+                # If older than 2 hours (7200 seconds)
+                if now - os.path.getmtime(item_path) > 7200:
+                    shutil.rmtree(item_path, ignore_errors=True)
+            except Exception:
+                pass
+
+
 def main():
     print_banner()
+
+    # Pre-sweep abandoned temporary crawls from previous runs
+    sweep_old_temp_crawls()
 
     args = parse_arguments()
 
@@ -111,7 +165,6 @@ def main():
 
     print_success(f"Engine Linked: [dim]{cli_path}[/dim]")
 
-
     # Resolve target URL
     raw_url = args.url if args.url else get_interactive_url()
     if not raw_url:
@@ -121,53 +174,75 @@ def main():
     target_url = normalize_url(raw_url)
     clean_domain = extract_clean_domain(target_url)
 
-    # Temporary crawl workspace
+    # Resolve Competitor Domains
+    if args.competitors:
+        competitor_list = [c.strip() for c in args.competitors.split(",") if c.strip()]
+    elif not args.url:
+        competitor_list = get_interactive_competitors()
+    else:
+        competitor_list = []
+
+    # Temporary crawl workspace with guaranteed lifecycle management
     temp_dir = os.path.join(get_temp_crawl_dir(), f"crawl_{clean_domain}_{int(time.time())}")
 
-    # 1. Execute Headless Crawl
-    crawl_ok = run_headless_crawl(
-        target_url=target_url,
-        output_dir=temp_dir,
-        crawl_limit=args.limit,
-        verbose=args.verbose
-    )
+    def cleanup_workspace():
+        if not args.keep_temp and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
 
-    if not crawl_ok:
-        print_error("Crawl process terminated unexpectedly. Review logs.")
-        sys.exit(1)
+    import atexit
+    atexit.register(cleanup_workspace)
 
-    # 2. Package and Normalize the 11 Audit Datasets (Zero Data Loss)
-    target_folder, datasets = organize_audit_datasets(
-        raw_crawl_dir=temp_dir,
-        target_url=target_url,
-        custom_output_dir=args.output
-    )
+    try:
+        # 1. Execute Headless Crawl
+        crawl_ok = run_headless_crawl(
+            target_url=target_url,
+            output_dir=temp_dir,
+            crawl_limit=args.limit,
+            config_file=args.config_file,
+            verbose=args.verbose
+        )
 
-    # 3. Clean up raw temporary crawl directory
-    if not args.keep_temp:
-        try:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        except Exception:
-            pass
+        if not crawl_ok:
+            print_error("Crawl process terminated unexpectedly. Review logs.")
+            sys.exit(1)
 
-    # 4. Google Sheets Live Engine & Master Excel Builder
-    sheet_url, excel_path = sync_to_google_sheet(
-        target_folder=target_folder,
-        domain=clean_domain,
-        webhook_url=args.webhook,
-        skip_webhook=args.no_sheet
-    )
+        # 2. Package and Normalize the 11 Audit Datasets (Zero Data Loss)
+        target_folder, datasets = organize_audit_datasets(
+            raw_crawl_dir=temp_dir,
+            target_url=target_url,
+            custom_output_dir=args.output
+        )
 
-    # 5. Display Executive Summary
-    print_files_summary(
-        folder_path=target_folder,
-        datasets=datasets,
-        sheet_url=sheet_url,
-        excel_path=excel_path
-    )
+        # 3. Google Sheets Live Engine & Master Excel Builder
+        sheet_url, excel_path = sync_to_google_sheet(
+            target_folder=target_folder,
+            domain=clean_domain,
+            webhook_url=args.webhook,
+            competitors=competitor_list,
+            max_sheet_rows=args.max_sheet_rows,
+            skip_webhook=args.no_sheet
+        )
+
+        # 4. Display Executive Summary
+        print_files_summary(
+            folder_path=target_folder,
+            datasets=datasets,
+            sheet_url=sheet_url,
+            excel_path=excel_path
+        )
+
+    except KeyboardInterrupt:
+        print_warning("\nAudit interrupted by user (Ctrl+C). Cleaning up workspace...")
+        sys.exit(130)
+    finally:
+        cleanup_workspace()
 
 
 if __name__ == "__main__":
     main()
+
 
 
